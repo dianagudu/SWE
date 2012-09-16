@@ -36,6 +36,8 @@
 #include <iostream>
 #include <ctime>
 
+#include "../SWE_BlockGhost.hh"
+
 namespace tools {
   class Logger;
 }
@@ -286,6 +288,40 @@ class tools::Logger {
         printNumber2d(i_nX, i_nY, i_cellMessage);
       }
     }
+
+    /**
+     * Print the time-stepping strategy
+     * (process rank 0 only)
+     *
+     * @param i_timeSteppingStrategy GTS or LTS
+     * @param i_cellMessage message.
+     */
+    void printTimeStepping ( const TimeSteppingType i_timeSteppingStrategy,
+                             const std::string i_cellMessage="Using time-stepping strategy: ") {
+      if(processRank == 0) {
+        timeCout()	<< indentation << i_cellMessage
+        			<< (i_timeSteppingStrategy == GTS? "GTS" : "LTS") << std::endl;
+      }
+    }
+
+    /**
+     * Print the interpolation scheme
+     * (process rank 0 only)
+     *
+     * @param i_interpolationScheme GTS or LTS
+     * @param i_cellMessage message.
+     */
+    void printInterpolation ( const InterpolationType i_interpolationScheme,
+                             const std::string i_cellMessage="Using interpolation scheme: ") {
+      if(processRank == 0) {
+        timeCout()	<< indentation << i_cellMessage
+        			<< (i_interpolationScheme == APPROX_TIME_SPACE ? "approximate time-space" :
+        				i_interpolationScheme == TIME_SPACE ? "time-space" :
+        				"space")
+        			<< " interpolation" << std::endl;
+      }
+    }
+
 
     /**
      * Print the number of cells per Process.

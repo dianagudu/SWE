@@ -26,20 +26,11 @@
  */
 
 #include "SWE_Block.hh"
+#include "SWE_BlockGhost.hh"
 #include "tools/help.hh"
 #include <cmath>
 #include <iostream>
 #include <cassert>
-#include <limits>
-
-
-// define static variables:
-  // block size: numer of cells in x and y direction:
-  int SWE_Block::nx = 10;
-  int SWE_Block::ny = 10;
-  // grid sizes dx and dy:
-  float SWE_Block::dx = 0.1f;
-  float SWE_Block::dy = 0.1f;
 
   // gravitational acceleration
   const float SWE_Block::g = 9.81f;
@@ -56,16 +47,19 @@
  * generated.
  *
  */
-SWE_Block::SWE_Block(float _offsetX, float _offsetY) 
-: h(nx+2,ny+2), hu(nx+2,ny+2), hv(nx+2,ny+2), b(nx+2,ny+2),
-  offsetX(_offsetX), offsetY(_offsetY)
-{
-  // set WALL as default boundary condition
+  SWE_Block::SWE_Block(float _offsetX, float _offsetY, int _nx, int _ny, float _dx, float _dy, int _nghosts)
+  : nx(_nx), ny(_ny), dx(_dx), dy(_dy), offsetX(_offsetX), offsetY(_offsetY), nghosts(_nghosts),
+//    nxint_s(1), nxint_e(_nx+2*_nghosts-2), nyint_s(1), nyint_e(_ny+2*_nghosts-2),
+    nxint_s(_nghosts), nxint_e(_nx+_nghosts-1), nyint_s(_nghosts), nyint_e(_ny+_nghosts-1),
+    h(_nx+2*_nghosts,_ny+2*_nghosts), hu(_nx+2*_nghosts,_ny+2*_nghosts),
+    hv(_nx+2*_nghosts,_ny+2*_nghosts), b(_nx+2*_nghosts,_ny+2*_nghosts)
+  {
+  // set PASSIVE as default boundary condition
   for(int i=0; i<4;i++) {
      boundary[i] = PASSIVE;
      neighbour[i] = NULL;
   };
-  
+
 }
 
 /**
@@ -91,37 +85,37 @@ SWE_Block::~SWE_Block() {
  * @param i_scenario scenario, which is used during the setup.
  * @param i_multipleBlocks are the multiple SWE_blocks?
  */
-void SWE_Block::initScenario( SWE_Scenario &i_scenario,
-                              const bool i_multipleBlocks ) {
+void SWE_Block::initScenario(	SWE_Scenario &i_scenario,
+									const bool i_multipleBlocks ) {
 
   // initialize water height and discharge
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      float x = offsetX + (i-0.5f)*dx;
-      float y = offsetY + (j-0.5f)*dy;
+  for(int i=nghosts; i<nx+nghosts; i++)
+    for(int j=nghosts; j<ny+nghosts; j++) {
+      float x = offsetX + (i-nghosts+0.5f)*dx;
+      float y = offsetY + (j-nghosts+0.5f)*dy;
       h[i][j] =  i_scenario.getWaterHeight(x,y);
       hu[i][j] = i_scenario.getVeloc_u(x,y) * h[i][j];
-      hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j]; 
+      hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j];
     };
 
-  // initialize bathymetry
-  for(int i=0; i<=nx+1; i++) {
-    for(int j=0; j<=ny+1; j++) {
-      b[i][j] = i_scenario.getBathymetry( offsetX + (i-0.5f)*dx,
-                                          offsetY + (j-0.5f)*dy );
+  // initialise bathymetry
+  for(int i=0; i<nx+2*nghosts; i++) {
+    for(int j=0; j<ny+2*nghosts; j++) {
+      b[i][j] = i_scenario.getBathymetry(offsetX + (i-nghosts+0.5f)*dx,
+                                    	 offsetY + (j-nghosts+0.5f)*dy );
     }
   }
 
   // in the case of multiple blocks the calling routine takes care about proper boundary conditions.
-  if( i_multipleBlocks == false ) {
-    // obtain boundary conditions for all four edges from scenario
-    setBoundaryType(BND_LEFT, i_scenario.getBoundaryType(BND_LEFT));
-    setBoundaryType(BND_RIGHT, i_scenario.getBoundaryType(BND_RIGHT));
-    setBoundaryType(BND_BOTTOM, i_scenario.getBoundaryType(BND_BOTTOM));
-    setBoundaryType(BND_TOP, i_scenario.getBoundaryType(BND_TOP));
+  if (i_multipleBlocks == false) {
+	// obtain boundary conditions for all four edges from scenario
+	setBoundaryType(BND_LEFT, i_scenario.getBoundaryType(BND_LEFT));
+	setBoundaryType(BND_RIGHT, i_scenario.getBoundaryType(BND_RIGHT));
+	setBoundaryType(BND_BOTTOM, i_scenario.getBoundaryType(BND_BOTTOM));
+	setBoundaryType(BND_TOP, i_scenario.getBoundaryType(BND_TOP));
   }
 
-  // perform update after external write to variables 
+  // perform update after external write to variables
   synchAfterWrite();
 
 }
@@ -132,8 +126,8 @@ void SWE_Block::initScenario( SWE_Scenario &i_scenario,
  */
 void SWE_Block::setWaterHeight(float _h) {
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
+  for(int i=nghosts; i<nx+nghosts; i++)
+    for(int j=nghosts; j<ny+nghosts; j++) {
       h[i][j] = _h;
     };
 
@@ -146,9 +140,9 @@ void SWE_Block::setWaterHeight(float _h) {
  */
 void SWE_Block::setWaterHeight(float (*_h)(float, float)) {
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      h[i][j] =  _h(offsetX + (i-0.5f)*dx, offsetY + (j-0.5f)*dy);
+  for(int i=nghosts; i<nx+nghosts; i++)
+	for(int j=nghosts; j<ny+nghosts; j++) {
+      h[i][j] =  _h(offsetX + (i-nghosts+0.5f)*dx, offsetY + (j-nghosts+0.5f)*dy);
     };
 
   synchWaterHeightAfterWrite();
@@ -162,8 +156,8 @@ void SWE_Block::setWaterHeight(float (*_h)(float, float)) {
  */
 void SWE_Block::setDischarge(float _u, float _v) {
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
+  for(int i=nghosts; i<nx+nghosts; i++)
+	for(int j=nghosts; j<ny+nghosts; j++) {
       hu[i][j] = h[i][j] * _u;
       hv[i][j] = h[i][j] * _v;
     };
@@ -178,12 +172,12 @@ void SWE_Block::setDischarge(float _u, float _v) {
  */
 void SWE_Block::setDischarge(float (*_u)(float, float), float (*_v)(float, float)) {
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      float x = offsetX + (i-0.5f)*dx;
-      float y = offsetY + (j-0.5f)*dy;
+  for(int i=nghosts; i<nx+nghosts; i++)
+	for(int j=nghosts; j<ny+nghosts; j++) {
+      float x = offsetX + (i-nghosts+0.5f)*dx;
+      float y = offsetY + (j-nghosts+0.5f)*dy;
       hu[i][j] = _u(x,y) * h[i][j];
-      hv[i][j] = _v(x,y) * h[i][j]; 
+      hv[i][j] = _v(x,y) * h[i][j];
     };
 
   synchDischargeAfterWrite();
@@ -196,8 +190,8 @@ void SWE_Block::setDischarge(float (*_u)(float, float), float (*_v)(float, float
  */
 void SWE_Block::setBathymetry(float _b) {
 
-  for(int i=0; i<=nx+1; i++)
-    for(int j=0; j<=ny+1; j++)
+  for(int i=0; i<nx+2*nghosts; i++)
+    for(int j=0; j<ny+2*nghosts; j++)
       b[i][j] = _b;
 
   synchBathymetryAfterWrite();
@@ -210,9 +204,9 @@ void SWE_Block::setBathymetry(float _b) {
  */
 void SWE_Block::setBathymetry(float (*_b)(float, float)) {
 
-  for(int i=0; i<=nx+1; i++)
-    for(int j=0; j<=ny+1; j++)
-      b[i][j] = _b(offsetX + (i-0.5f)*dx, offsetY + (j-0.5f)*dy);
+  for(int i=0; i<nx+2*nghosts; i++)
+	for(int j=0; j<ny+2*nghosts; j++)
+      b[i][j] = _b(offsetX + (i-nghosts+0.5f)*dx, offsetY + (j-nghosts+0.5f)*dy);
 
   synchBathymetryAfterWrite();
 }
@@ -275,23 +269,23 @@ void SWE_Block::setBathymetry(float (*_b)(float, float)) {
 /**
  * return reference to water height unknown h
  */
-const Float2D& SWE_Block::getWaterHeight() { 
+const Float2D& SWE_Block::getWaterHeight() {
   synchWaterHeightBeforeRead();
-  return h; 
+  return h;
 };
 
 /**
  * return reference to discharge unknown hu
  */
-const Float2D& SWE_Block::getDischarge_hu() { 
+const Float2D& SWE_Block::getDischarge_hu() {
   synchDischargeBeforeRead();
-  return hu; 
+  return hu;
 };
 
 /**
  * return reference to discharge unknown hv
  */
-const Float2D& SWE_Block::getDischarge_hv() { 
+const Float2D& SWE_Block::getDischarge_hv() {
   synchDischargeBeforeRead();
   return hv;
 };
@@ -299,9 +293,9 @@ const Float2D& SWE_Block::getDischarge_hv() {
 /**
  * return reference to bathymetry unknown b
  */
-const Float2D& SWE_Block::getBathymetry() { 
+const Float2D& SWE_Block::getBathymetry() {
   synchBathymetryBeforeRead();
-  return b; 
+  return b;
 };
 
 //==================================================================
@@ -312,7 +306,7 @@ const Float2D& SWE_Block::getBathymetry() {
  * set wall boundary tpye for the four block boundaries
  */
 void SWE_Block::setWallBoundaries() {
-  
+
   boundary[BND_LEFT]   = WALL;
   boundary[BND_RIGHT]  = WALL;
   boundary[BND_BOTTOM] = WALL;
@@ -323,7 +317,7 @@ void SWE_Block::setWallBoundaries() {
  * set outflow boundary tpye for the four block boundaries
  */
 void SWE_Block::setOutflowBoundaries() {
-  
+
   boundary[BND_LEFT]   = OUTFLOW;
   boundary[BND_RIGHT]  = OUTFLOW;
   boundary[BND_BOTTOM] = OUTFLOW;
@@ -331,36 +325,33 @@ void SWE_Block::setOutflowBoundaries() {
 }
 
 /**
- * Set the boundary type for specific block boundary.
- *
- * @param i_edge location of the edge relative to the SWE_block.
- * @param i_boundaryType type of the boundary condition.
- * @param i_inflow pointer to an SWE_Block1D, which specifies the inflow (should be NULL for WALL or OUTFLOW boundary)
+ * set boundary type for a specific block boundary
+ * @param edge	specifies boundary (LEFT, RIGHT, BOTTOM, TOP)
+ * @param boundtype	type of boundary condition
+ * @param inflow	pointer to an SWE_block1D that specifies
+ * 			inflow (should be NULL for WALL or OUTFLOW boundary)
  */
-void SWE_Block::setBoundaryType( const BoundaryEdge i_edge,
-                                 const BoundaryType i_boundaryType,
-                                 const SWE_Block1D* i_inflow) {
-  boundary[i_edge] = i_boundaryType;
-  neighbour[i_edge] = i_inflow;
-
+void SWE_Block::setBoundaryType(BoundaryEdge edge, BoundaryType boundtype,
+                                const SWE_BlockGhost* inflow) {
+  boundary[edge] = boundtype;
+  neighbour[edge] = inflow;
   // set bathymetry values in the ghost layer, if necessary
-  for(int j=0; j<=ny+1; j++) {
-    if( boundary[BND_LEFT] == OUTFLOW || boundary[BND_LEFT] == WALL ) {
-      b[0][j] = b[1][j];
-    }
-    if( boundary[BND_RIGHT] == OUTFLOW || boundary[BND_RIGHT] == WALL ) {
-      b[nx+1][j] = b[nx][j];
+  for(int j=0; j<ny+2*nghosts; j++) {
+	if( boundary[BND_LEFT] == OUTFLOW || boundary[BND_LEFT] == WALL ) {
+	  b[nghosts-1][j] = b[nghosts][j];
+	}
+	if( boundary[BND_RIGHT] == OUTFLOW || boundary[BND_RIGHT] == WALL ) {
+	  b[nx+nghosts][j] = b[nx+nghosts-1][j];
+	}
+  }
+  for(int i=0; i<nx+2*nghosts; i++) {
+	if( boundary[BND_BOTTOM] == OUTFLOW || boundary[BND_BOTTOM] == WALL ) {
+	  b[i][nghosts-1] = b[i][nghosts];
+	}
+	if( boundary[BND_TOP] == OUTFLOW || boundary[BND_TOP] == WALL ) {
+	  b[i][ny+nghosts] = b[i][ny+nghosts-1];
     }
   }
-  for(int i=0; i<=nx+1; i++) {
-    if( boundary[BND_BOTTOM] == OUTFLOW || boundary[BND_BOTTOM] == WALL ) {
-      b[i][0] = b[i][1];
-    }
-    if( boundary[BND_TOP] == OUTFLOW || boundary[BND_TOP] == WALL ) {
-      b[i][ny+1] = b[i][ny];
-    }
-  }
-
   // synchronize after an external update of the bathymetry
   synchBathymetryAfterWrite();
 }
@@ -382,19 +373,31 @@ void SWE_Block::setBoundaryType( const BoundaryEdge i_edge,
 /**
  * register the row or column layer next to a boundary as a "copy layer",
  * from which values will be copied into the ghost layer or a neighbour;
- * @return	a SWE_Block1D object that contains row variables h, hu, and hv
+ * @return	a SWE_BlockGhost object that contains row variables h, hu, and hv
  */
-SWE_Block1D* SWE_Block::registerCopyLayer(BoundaryEdge edge){
+SWE_BlockGhost* SWE_Block::registerCopyLayer(BoundaryEdge edge){
 
   switch (edge) {
     case BND_LEFT:
-      return new SWE_Block1D( h.getColProxy(1), hu.getColProxy(1), hv.getColProxy(1) );
+      return new SWE_BlockGhost(  *h.getBlockProxy(nghosts, 0, nghosts, ny+2*nghosts),
+    		  	  	  	  	  	  *b.getBlockProxy(nghosts, 0, nghosts, ny+2*nghosts),
+    		  	  	  	  	  	  *hu.getBlockProxy(nghosts, 0, nghosts, ny+2*nghosts),
+    		  	  	  	  	  	  *hv.getBlockProxy(nghosts, 0, nghosts, ny+2*nghosts) );
     case BND_RIGHT:
-      return new SWE_Block1D( h.getColProxy(nx), hu.getColProxy(nx), hv.getColProxy(nx) );
+      return new SWE_BlockGhost(  *h.getBlockProxy(nx, 0, nghosts, ny+2*nghosts),
+    		  	  	  	  	  	  *b.getBlockProxy(nx, 0, nghosts, ny+2*nghosts),
+    		  	  	  	  	  	  *hu.getBlockProxy(nx, 0, nghosts, ny+2*nghosts),
+    		  	  	  	  	  	  *hv.getBlockProxy(nx, 0, nghosts, ny+2*nghosts) );
     case BND_BOTTOM:
-      return new SWE_Block1D( h.getRowProxy(1), hu.getRowProxy(1), hv.getRowProxy(1));
+      return new SWE_BlockGhost(  *h.getBlockProxy(0, nghosts, nx+2*nghosts, nghosts),
+    		  	  	  	  	  	  *b.getBlockProxy(0, nghosts, nx+2*nghosts, nghosts),
+    		  	  	  	  	  	  *hu.getBlockProxy(0, nghosts, nx+2*nghosts, nghosts),
+    		  	  	  	  	  	  *hv.getBlockProxy(0, nghosts, nx+2*nghosts, nghosts));
     case BND_TOP:
-      return new SWE_Block1D( h.getRowProxy(ny), hu.getRowProxy(ny), hv.getRowProxy(ny));
+      return new SWE_BlockGhost(  *h.getBlockProxy(0, ny, nx+2*nghosts, nghosts),
+    		  	  	  	  	  	  *b.getBlockProxy(0, ny, nx+2*nghosts, nghosts),
+    		  	  	  	  	  	  *hu.getBlockProxy(0, ny, nx+2*nghosts, nghosts),
+    		  	  	  	  	  	  *hv.getBlockProxy(0, ny, nx+2*nghosts, nghosts));
   };
   return NULL;
 }
@@ -407,20 +410,32 @@ SWE_Block1D* SWE_Block::registerCopyLayer(BoundaryEdge edge){
  * values in the ghost layer, for example by receiving data from a remote 
  * copy layer via MPI communication. 
  * @param	specified edge
- * @return	a SWE_Block1D object that contains row variables h, hu, and hv
+ * @return	a SWE_BlockGhost object that contains row variables h, hu, and hv
  */
-SWE_Block1D* SWE_Block::grabGhostLayer(BoundaryEdge edge){
+SWE_BlockGhost* SWE_Block::grabGhostLayer(BoundaryEdge edge){
 
   boundary[edge] = PASSIVE;
   switch (edge) {
     case BND_LEFT:
-      return new SWE_Block1D( h.getColProxy(0), hu.getColProxy(0), hv.getColProxy(0) );
-    case BND_RIGHT:
-      return new SWE_Block1D( h.getColProxy(nx+1), hu.getColProxy(nx+1), hv.getColProxy(nx+1) );
-    case BND_BOTTOM:
-      return new SWE_Block1D( h.getRowProxy(0), hu.getRowProxy(0), hv.getRowProxy(0));
-    case BND_TOP:
-      return new SWE_Block1D( h.getRowProxy(ny+1), hu.getRowProxy(ny+1), hv.getRowProxy(ny+1));
+       return new SWE_BlockGhost( *h.getBlockProxy(0, 0, nghosts, ny+2*nghosts),
+    		   	   	   	   	   	  *b.getBlockProxy(0, 0, nghosts, ny+2*nghosts),
+     		  	  	  	  	  	  *hu.getBlockProxy(0, 0, nghosts, ny+2*nghosts),
+     		  	  	  	  	  	  *hv.getBlockProxy(0, 0, nghosts, ny+2*nghosts) );
+     case BND_RIGHT:
+       return new SWE_BlockGhost( *h.getBlockProxy(nx+nghosts, 0, nghosts, ny+2*nghosts),
+    		   	   	   	   	   	  *b.getBlockProxy(nx+nghosts, 0, nghosts, ny+2*nghosts),
+     		  	  	  	  	  	  *hu.getBlockProxy(nx+nghosts, 0, nghosts, ny+2*nghosts),
+     		  	  	  	  	  	  *hv.getBlockProxy(nx+nghosts, 0, nghosts, ny+2*nghosts) );
+     case BND_BOTTOM:
+       return new SWE_BlockGhost( *h.getBlockProxy(0, 0, nx+2*nghosts, nghosts),
+    		   	   	   	   	   	  *b.getBlockProxy(0, 0, nx+2*nghosts, nghosts),
+     		  	  	  	  	  	  *hu.getBlockProxy(0, 0, nx+2*nghosts, nghosts),
+     		  	  	  	  	  	  *hv.getBlockProxy(0, 0, nx+2*nghosts, nghosts));
+     case BND_TOP:
+       return new SWE_BlockGhost( *h.getBlockProxy(0, ny+nghosts, nx+2*nghosts, nghosts),
+    		   	   	   	   	   	  *b.getBlockProxy(0, ny+nghosts, nx+2*nghosts, nghosts),
+     		  	  	  	  	  	  *hu.getBlockProxy(0, ny+nghosts, nx+2*nghosts, nghosts),
+     		  	  	  	  	  	  *hv.getBlockProxy(0, ny+nghosts, nx+2*nghosts, nghosts));
   };
   return NULL;
 }
@@ -437,52 +452,60 @@ void SWE_Block::setGhostLayer() {
 #ifdef DBG
   cout << "Set simple boundary conditions " << endl << flush;
 #endif
-  // call to virtual function to set ghost layer values 
+  // call to virtual function to set ghost layer values
   setBoundaryConditions();
 
   // for a CONNECT boundary, data will be copied from a neighbouring
-  // SWE_Block (via a SWE_Block1D proxy object)
+  // SWE_Block (via a SWE_BlockGhost proxy object)
   // -> these copy operations cannot be executed in GPU/accelerator memory, e.g.
   //    setBoundaryConditions then has to take care that values are copied.
-  
+
 #ifdef DBG
   cout << "Set CONNECT boundary conditions in main memory " << endl << flush;
 #endif
   // left boundary
   if (boundary[BND_LEFT] == CONNECT) {
-     for(int j=0; j<=ny+1; j++) {
-       h[0][j] = neighbour[BND_LEFT]->h[j];
-       hu[0][j] = neighbour[BND_LEFT]->hu[j];
-       hv[0][j] = neighbour[BND_LEFT]->hv[j];
-      };
-  };
-  
+	  for(int i=0; i<nghosts; i++) {
+		  for(int j=0; j<ny+2*nghosts; j++) {
+			  h[i][j] = neighbour[BND_LEFT]->h[i][j];
+			  hu[i][j] = neighbour[BND_LEFT]->hu[i][j];
+			  hv[i][j] = neighbour[BND_LEFT]->hv[i][j];
+		  }
+	  }
+  }
+
   // right boundary
   if(boundary[BND_RIGHT] == CONNECT) {
-     for(int j=0; j<=ny+1; j++) {
-       h[nx+1][j] = neighbour[BND_RIGHT]->h[j];
-       hu[nx+1][j] = neighbour[BND_RIGHT]->hu[j];
-       hv[nx+1][j] = neighbour[BND_RIGHT]->hv[j];
-      };
-  };
+	  for(int i=0; i<nghosts; i++) {
+		  for(int j=0; j<ny+2*nghosts; j++) {
+			  h[nx+nghosts+i][j] = neighbour[BND_RIGHT]->h[i][j];
+			  hu[nx+nghosts+i][j] = neighbour[BND_RIGHT]->hu[i][j];
+			  hv[nx+nghosts+i][j] = neighbour[BND_RIGHT]->hv[i][j];
+		  }
+	  }
+  }
 
   // bottom boundary
-  if(boundary[BND_BOTTOM] == CONNECT) {
-     for(int i=0; i<=nx+1; i++) {
-       h[i][0] = neighbour[BND_BOTTOM]->h[i];
-       hu[i][0] = neighbour[BND_BOTTOM]->hu[i];
-       hv[i][0] = neighbour[BND_BOTTOM]->hv[i];
-      };
-  };
+  if (boundary[BND_BOTTOM] == CONNECT) {
+	  for (int i=0; i<nx+2*nghosts; i++) {
+		  for (int j=0; j<nghosts; j++) {
+			  h[i][j] = neighbour[BND_BOTTOM]->h[i][j];
+			  hu[i][j] = neighbour[BND_BOTTOM]->hu[i][j];
+			  hv[i][j] = neighbour[BND_BOTTOM]->hv[i][j];
+		  }
+	  }
+  }
 
   // top boundary
   if(boundary[BND_TOP] == CONNECT) {
-     for(int i=0; i<=nx+1; i++) {
-       h[i][ny+1] = neighbour[BND_TOP]->h[i];
-       hu[i][ny+1] = neighbour[BND_TOP]->hu[i];
-       hv[i][ny+1] = neighbour[BND_TOP]->hv[i];
-     }
-  };
+	  for (int i=0; i<nx+2*nghosts; i++) {
+		  for (int j=0; j<nghosts; j++) {
+			  h[i][ny+nghosts+j] = neighbour[BND_TOP]->h[i][j];
+			  hu[i][ny+nghosts+j] = neighbour[BND_TOP]->hu[i][j];
+			  hv[i][ny+nghosts+j] = neighbour[BND_TOP]->hv[i][j];
+		  }
+	  }
+  }
 
 #ifdef DBG
   cout << "Synchronize ghost layers (for heterogeneous memory) " << endl << flush;
@@ -503,27 +526,27 @@ void SWE_Block::setGhostLayer() {
  */
 void SWE_Block::computeMaxTimestep( const float i_dryTol,
                                     const float i_cflNumber ) {
-  
+
   // initialize the maximum wave speed
   float l_maximumWaveSpeed = (float) 0;
 
   // compute the maximum wave speed within the grid
-  for(int i=1; i <= nx; i++) {
-    for(int j=1; j <= ny; j++) {
+  for(int i=nghosts; i < nx + nghosts; i++) {
+    for(int j=nghosts; j < ny + nghosts; j++) {
       if( h[i][j] > i_dryTol ) {
         float l_momentum = std::max( std::abs( hu[i][j] ),
                                      std::abs( hv[i][j] ) );
 
         float l_particleVelocity = l_momentum / h[i][j];
-        
+
         // approximate the wave speed
         float l_waveSpeed = l_particleVelocity + std::sqrt( g * h[i][j] );
-        
+
         l_maximumWaveSpeed = std::max( l_maximumWaveSpeed, l_waveSpeed );
       }
     }
   }
-  
+
   float l_minimumCellLength = std::min( dx, dy );
 
   // set the maximum time step variable
@@ -554,19 +577,19 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_LEFT]) {
     case WALL:
     {
-      for(int j=1; j<=ny; j++) {
-        h[0][j] = h[1][j];
-        hu[0][j] = -hu[1][j];
-        hv[0][j] = hv[1][j];
+      for(int j=nghosts; j<ny+nghosts; j++) {
+        h[nghosts-1][j] = h[nghosts][j];
+        hu[nghosts-1][j] = -hu[nghosts][j];
+        hv[nghosts-1][j] = hv[nghosts][j];
       };
       break;
     }
     case OUTFLOW:
     {
-      for(int j=1; j<=ny; j++) {
-        h[0][j] = h[1][j];
-        hu[0][j] = hu[1][j];
-        hv[0][j] = hv[1][j];
+      for(int j=nghosts; j<ny+nghosts; j++) {
+        h[nghosts-1][j] = h[nghosts][j];
+        hu[nghosts-1][j] = hu[nghosts][j];
+        hv[nghosts-1][j] = hv[nghosts][j];
       };
       break;
     }
@@ -582,19 +605,19 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_RIGHT]) {
     case WALL:
     {
-      for(int j=1; j<=ny; j++) {
-        h[nx+1][j] = h[nx][j];
-        hu[nx+1][j] = -hu[nx][j];
-        hv[nx+1][j] = hv[nx][j];
+      for(int j=nghosts; j<ny+nghosts; j++) {
+        h[nx+nghosts][j] = h[nx+nghosts-1][j];
+        hu[nx+nghosts][j] = -hu[nx+nghosts-1][j];
+        hv[nx+nghosts][j] = hv[nx+nghosts-1][j];
       };
       break;
     }
     case OUTFLOW:
     {
-      for(int j=1; j<=ny; j++) {
-        h[nx+1][j] = h[nx][j];
-        hu[nx+1][j] = hu[nx][j];
-        hv[nx+1][j] = hv[nx][j];
+      for(int j=nghosts; j<ny+nghosts; j++) {
+        h[nx+nghosts][j] = h[nx+nghosts-1][j];
+        hu[nx+nghosts][j] = hu[nx+nghosts-1][j];
+        hv[nx+nghosts][j] = hv[nx+nghosts-1][j];
       };
       break;
     }
@@ -610,19 +633,19 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_BOTTOM]) {
     case WALL:
     {
-      for(int i=1; i<=nx; i++) {
-        h[i][0] = h[i][1];
-        hu[i][0] = hu[i][1];
-        hv[i][0] = -hv[i][1];
+      for(int i=nghosts; i<nx+nghosts; i++) {
+        h[i][nghosts-1] = h[i][nghosts];
+        hu[i][nghosts-1] = hu[i][nghosts];
+        hv[i][nghosts-1] = -hv[i][nghosts];
       };
       break;
     }
     case OUTFLOW:
     {
-      for(int i=1; i<=nx; i++) {
-        h[i][0] = h[i][1];
-        hu[i][0] = hu[i][1];
-        hv[i][0] = hv[i][1];
+      for(int i=nghosts; i<nx+nghosts; i++) {
+        h[i][nghosts-1] = h[i][nghosts];
+        hu[i][nghosts-1] = hu[i][nghosts];
+        hv[i][nghosts-1] = hv[i][nghosts];
       };
       break;
     }
@@ -638,19 +661,19 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_TOP]) {
     case WALL:
     {
-      for(int i=1; i<=nx; i++) {
-        h[i][ny+1] = h[i][ny];
-        hu[i][ny+1] = hu[i][ny];
-        hv[i][ny+1] = -hv[i][ny];
+      for(int i=nghosts; i<nx+nghosts; i++) {
+        h[i][ny+nghosts] = h[i][ny+nghosts-1];
+        hu[i][ny+nghosts] = hu[i][ny+nghosts-1];
+        hv[i][ny+nghosts] = -hv[i][ny+nghosts-1];
       };
       break;
     }
     case OUTFLOW:
     {
-      for(int i=1; i<=nx; i++) {
-        h[i][ny+1] = h[i][ny];
-        hu[i][ny+1] = hu[i][ny];
-        hv[i][ny+1] = hv[i][ny];
+      for(int i=nghosts; i<nx+nghosts; i++) {
+        h[i][ny+nghosts] = h[i][ny+nghosts-1];
+        hu[i][ny+nghosts] = hu[i][ny+nghosts-1];
+        hv[i][ny+nghosts] = hv[i][ny+nghosts-1];
       };
       break;
     }
@@ -663,10 +686,10 @@ void SWE_Block::setBoundaryConditions() {
   };
 
   // only required for visualisation: set values in corner ghost cells
-  h[0][0] = h[1][1];
-  h[0][ny+1] = h[1][ny];
-  h[nx+1][0] = h[nx][1];
-  h[nx+1][ny+1] = h[nx][ny];
+  h[nghosts-1][nghosts-1] = h[nghosts][nghosts];
+  h[nghosts-1][ny+nghosts] = h[nghosts][ny+nghosts-1];
+  h[nx+nghosts][nghosts-1] = h[nx+nghosts-1][nghosts];
+  h[nx+nghosts][ny+nghosts] = h[nx+nghosts-1][ny+nghosts-1];
 
 }
 
@@ -755,6 +778,8 @@ void SWE_Block::synchCopyLayerBeforeRead() {}
 // methods for VTK output (i.e., for visualisation)
 //==================================================================
 
+// TODO: modify vriteVTK... methods to use the new indexing
+
 /**
  * Write a VTK file (using XML format) for visualisation using ParaView
  * -> writes unknowns h, u, v, and b of a single SWE_Block
@@ -803,7 +828,7 @@ void SWE_Block::writeVTKFileXML(string FileName, int offsetX, int offsetY) {
    Vtk_file << "</DataArray>"<<endl;
    // Bathymetry
    Vtk_file << "<DataArray Name=\"B\" type=\"Float64\" format=\"ascii\">"<<endl;
-   for (int j=1; j<ny+1;j++)	
+   for (int j=1; j<ny+1;j++)
       for (int i=1;i<nx+1;i++)
 	 Vtk_file << b[i][j]<<endl;
    Vtk_file << "</DataArray>"<<endl;
@@ -824,7 +849,7 @@ void SWE_Block::writeVTKFileXML(string FileName, int offsetX, int offsetY) {
 void SWE_Block::writeVTKFile(string FileName) {
 
 	synchBeforeRead();
-	
+
         // VTK HEADER
 	Vtk_file.open(FileName.c_str());
 	Vtk_file <<"# vtk DataFile Version 2.0"<<endl;
@@ -851,17 +876,17 @@ void SWE_Block::writeVTKFile(string FileName) {
 			Vtk_file <<(h[i][j]+b[i][j])<<endl;
 	Vtk_file << "SCALARS U double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)	
+	for (int j=1; j<ny+1;j++)
 		for (int i=1;i<nx+1;i++)
 			Vtk_file << ((h[i][j]>0) ? hu[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS V double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)	
+	for (int j=1; j<ny+1;j++)
 		for (int i=1;i<nx+1;i++)
 			Vtk_file << ((h[i][j]>0) ? hv[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS B double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)	
+	for (int j=1; j<ny+1;j++)
 		for (int i=1;i<nx+1;i++)
 			Vtk_file <<b[i][j]<<endl;
 	Vtk_file.close();
@@ -877,7 +902,7 @@ void SWE_Block::writeVTKFile(string FileName) {
 void SWE_Block::writeVTKFile3D(string FileName) {
 
 	synchBeforeRead();
-	
+
 	// VTK HEADER
 	Vtk_file.open(FileName.c_str());
 	Vtk_file <<"# vtk DataFile Version 2.0"<<endl;
@@ -891,7 +916,7 @@ void SWE_Block::writeVTKFile3D(string FileName) {
 			for (int i=0;i<nx+1;i++)
 				Vtk_file << i*dx<<" "<<j*dy<<" "
 				         << 0.25*(h[i][j]+h[i+1][j]+h[i][j+1]+h[i+1][j+1]
-					         +b[i][j]+b[i+1][j]+b[i][j+1]+b[i+1][j+1]) 
+					         +b[i][j]+b[i+1][j]+b[i][j+1]+b[i+1][j+1])
 					 <<endl;
 	Vtk_file <<endl;
 	Vtk_file << "CELL_DATA "<<ny*nx<<endl;
@@ -904,17 +929,17 @@ void SWE_Block::writeVTKFile3D(string FileName) {
 			Vtk_file <<(h[i][j]+b[i][j])<<endl;
 	Vtk_file << "SCALARS U double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)	
+	for (int j=1; j<ny+1;j++)
 		for (int i=1;i<nx+1;i++)
 			Vtk_file << ((h[i][j]>0) ? hu[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS V double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)	
+	for (int j=1; j<ny+1;j++)
 		for (int i=1;i<nx+1;i++)
 			Vtk_file << ((h[i][j]>0) ? hv[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS B double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)	
+	for (int j=1; j<ny+1;j++)
 		for (int i=1;i<nx+1;i++)
 			Vtk_file <<b[i][j]<<endl;
 	Vtk_file.close();
@@ -939,28 +964,28 @@ void SWE_Block::writeVTKFile3D(string FileName) {
  * @return	reference to the parameter os
  */
 ostream& operator<<(ostream& os, const SWE_Block& swe) {
-  
+
   os << "Gitterzellen: " << swe.nx << "x" << swe.ny << endl;
 
   cout << "Wellenhoehe:" << endl;
-  for(int i=0; i<=swe.nx+1; i++) {
-    for(int j=0; j<=swe.ny+1; j++) {
+  for(int i=0; i<=swe.nx+2*swe.nghosts; i++) {
+    for(int j=0; j<=swe.ny+2*swe.nghosts; j++) {
       os << swe.h[i][j] << "  ";
     };
     os << endl;
   };
 
   cout << "Geschwindigkeit in x-Richtung:" << endl;
-  for(int i=0; i<=swe.nx+1; i++) {
-    for(int j=0; j<=swe.ny+1; j++) {
-      os << swe.hu[i][j] << "  ";
+  for(int i=0; i<=swe.nx+2*swe.nghosts; i++) {
+    for(int j=0; j<=swe.ny+2*swe.nghosts; j++) {
+    	os << swe.hu[i][j] << "  ";
     };
     os << endl;
   };
 
   cout << "Geschwindigkeit in y-Richtung:" << endl;
-  for(int i=0; i<=swe.nx-1; i++) {
-    for(int j=0; j<=swe.ny-1; j++) {
+  for(int i=0; i<=swe.nx+2*swe.nghosts; i++) {
+    for(int j=0; j<=swe.ny+2*swe.nghosts; j++) {
       os << swe.hv[i][j] << "  ";
     };
     os << endl;

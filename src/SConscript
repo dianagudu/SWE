@@ -31,7 +31,10 @@ Import('env')
 # Code without CUDA
 if env['parallelization'] not in ['cuda', 'mpi_with_cuda']:
   if env['solver'] != 'rusanov':
-    sourceFiles = ['SWE_WavePropagationBlock.cpp']
+  	if env['adaptive'] == True:
+  	 sourceFiles = ['SWE_WavePropagationAMR.cpp']
+	else:
+   	 sourceFiles = ['SWE_WavePropagationBlock.cpp']
   else:
     sourceFiles = ['SWE_RusanovBlock.cpp']
 
@@ -50,12 +53,26 @@ else:
   if env['openGL'] == True:
     sourceFiles.append( ['opengl/simulation.cu'] )
   
+if env['adaptive'] == True:
+	sourceFiles.append( [ 'SWE_BlockGhost.cpp' ] )
+	sourceFiles.append( [ 'SWE_BlockAMR.cpp' ] )
+	sourceFiles.append( [ 'SWE_BlockManager.cpp' ] )
+  
 # compile the files defined so far, important step because of possible different compilers                  
 for i in sourceFiles:
   env.src_files.append(env.Object(i))
 
 # SWE_Block is used in every implementation
 sourceFiles = ['SWE_Block.cpp']
+
+# OpenGL CPU-files
+if env['openGL'] == True:
+  sourceFiles.append( ['scenarios/SWE_VtkScenario.cpp'] )
+  sourceFiles.append( ['scenarios/SWE_VtkScenarioVisInfo.cpp'] )
+  sourceFiles.append( ['opengl/camera.cpp'] )
+  sourceFiles.append( ['opengl/controller.cpp'] )
+  sourceFiles.append( ['opengl/shader.cpp'] )
+  sourceFiles.append( ['opengl/visualization.cpp'] )
 
 # OpenGL CPU-files
 if env['openGL'] == True:
@@ -78,14 +95,17 @@ if env['xmlRuntime'] == True:
 if env['parallelization'] in ['none', 'cuda']:
   if env['solver'] != 'rusanov':
     if env['openGL'] == False:
-      sourceFiles.append( ['examples/swe_wavepropagation.cpp'] )
+      if env['adaptive'] == True:
+        sourceFiles.append( ['examples/swe_wavepropagationAMR.cpp'] )
+      else:
+        sourceFiles.append( ['examples/swe_wavepropagation.cpp'] )
     else:
       sourceFiles.append( ['examples/swe_opengl.cpp'] )
   else:
-   print '** The selected configuration is not implemented.'
-   Exit(1)
+    print '** The selected configuration is not implemented.'
+    Exit(1)
 elif env['parallelization'] in ['mpi_with_cuda', 'mpi']:
-    sourceFiles.append( ['examples/swe_mpi.cpp'] )
+  sourceFiles.append( ['examples/swe_mpi.cpp'] )
 else:
   print '** The selected configuration is not implemented.'
   Exit(1)

@@ -31,6 +31,9 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstdio>
+
+using namespace std;
 
 /**
  * class Float1D is a proxy class that can represent, for example, 
@@ -49,6 +52,12 @@ class Float1D
 	Float1D(float* _elem, int _rows, int _stride = 1) 
 	: rows(_rows),stride(_stride),elem(_elem)
 	{
+	}
+
+	Float1D(int _rows, int _stride = 1)
+	: rows(_rows),stride(_stride)
+	{
+		elem = new float[rows*stride]();
 	}
 
 	~Float1D()
@@ -87,55 +96,100 @@ class Float2D
 {
 public:
 	/**
-         * Constructor
-         * @param _cols	number of columns (i.e., elements in horizontal direction)
-         * @param _rows rumber of rows (i.e., elements in vertical directions)
-         */
-        Float2D(int _cols, int _rows) : rows(_rows),cols(_cols)
+	 * Constructor
+	 * @param _cols	number of columns (i.e., elements in horizontal direction)
+	 * @param _rows rumber of rows (i.e., elements in vertical directions)
+	 */
+	Float2D(int _cols, int _rows, int _cpadd=0, int  _rpadd=0)
+    : rows(_rows), cols(_cols), cpadd(_cpadd), rpadd(_rpadd), isProxy(false)
 	{
-		elem = new float[rows*cols];
-		for(int i=0; i < cols; i++)
-			for(int j=0; j < rows; j++)
-				elem[i*rows+j] = 0;
+		elem = new float[(rows+rpadd)*(cols+cpadd)];
+		for(int i=0; i < cols + cpadd; i++)
+			for(int j=0; j < rows + rpadd; j++)
+				elem[i*(rows+rpadd)+j] = 0;
 	}
+
+	Float2D(float* _elem, int _cols, int _rows, int _cpadd=0, int  _rpadd=0)
+	: rows(_rows), cols(_cols), elem(_elem), cpadd(_cpadd), rpadd(_rpadd), isProxy(true) {}
+
+    Float2D(const Float2D& obj)
+    : rows(obj.rows), cols(obj.cols), cpadd(obj.cpadd), rpadd(obj.rpadd), isProxy(obj.isProxy)
+    {
+		if (isProxy)
+			elem = obj.elem;
+		else {
+			elem = new float[(rows+rpadd)*(cols+cpadd)];
+			for(int i=0; i < cols + cpadd; i++)
+				for(int j=0; j < rows + rpadd; j++)
+					elem[i*(rows+rpadd)+j] = obj.elem[i*(rows+rpadd)+j];
+		}
+    }
 
 	~Float2D()
 	{
-		delete[] elem;
+		if (!isProxy)
+			delete[] elem;
 	}
 
-	inline float* operator[](int i) { 
-		return (elem + (rows * i)); 
+	inline float* operator[](int i) {
+		return (elem + ((rows+rpadd) * i));
 	}
 
 	inline float const* operator[](int i) const {
-		return (elem + (rows * i)); 
+		return (elem + ((rows+rpadd) * i));
 	}
 
 	inline float* elemVector() {
 		return elem;
 	}
 
-        inline int getRows() const { return rows; }; 
-        inline int getCols() const { return cols; }; 
+    inline int getRows() const { return rows; };
+    inline int getCols() const { return cols; };
 
 	inline Float1D getColProxy(int i) {
 		// subarray elem[i][*]:
-                // starting at elem[i][0] with rows elements and unit stride
-		return Float1D(elem + (rows * i), rows);
+        // starting at elem[i][0] with rows elements and unit stride
+		return Float1D(elem + ((rows+rpadd) * i), rows);
 	};
-	
+
 	inline Float1D getRowProxy(int j) {
 		// subarray elem[*][j]
-                // starting at elem[0][j] with cols elements and stride rows
-		return Float1D(elem + j, cols, rows);
+        // starting at elem[0][j] with cols elements and stride rows
+		return Float1D(elem + j, cols, rows+rpadd);
 	};
+
+	inline Float2D* getBlockProxy(int c, int r, int nc, int nr) {
+		// submatrix starting at elem[c][r] with nr rows and nc columns
+//		Float2D proxy(nc, nr);
+//		for (int i=0; i<nc; i++)
+//			for (int j=0; j<nr; j++)
+//				proxy[i][j] = elem[(i+c)*rows+j+r];
+//		return proxy;
+		return new Float2D(elem + c*(rows+rpadd) + r, nc, nr, cols+cpadd-nc, rows+rpadd-nr);
+	}
 
   private:
     int rows;
     int cols;
-    float* elem; 
+    float* elem;
+    // padding for rows and columns
+	int cpadd;
+	int rpadd;
+	bool isProxy;
 };
+
+/*
+ * returns the smallest if all are positive,
+           the largest  if all are negative,
+           zero         if they are not all positive or all negative
+ */
+inline float minmod(float a, float b) {
+	if (a>0 && b>0)
+		return std::min(a,b);
+	if (a<0 && b<0)
+		return std::max(a,b);
+	return 0.;
+}
 
 //-------- Methods for Visualistion of Results --------
 

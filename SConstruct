@@ -87,7 +87,9 @@ vars.AddVariables(
                 allowed_values=('rusanov', 'fwave', 'augrie', 'hybrid')
               ),
 
-  BoolVariable( 'xmlRuntime', 'use a xml-file for runtime parameters', False )
+  BoolVariable( 'xmlRuntime', 'use a xml-file for runtime parameters', False ),
+  BoolVariable( 'adaptive', 'use block-adaptive refinement', False ),
+  BoolVariable( 'benchmark', 'write benchmarking data to files', False )
 )
 
 # external variables
@@ -145,7 +147,7 @@ if env['compileMode'] == 'debug':
   env.Append(CPPDEFINES=['DEBUG'])
 
   if env['compiler'] == 'gnu':
-    env.Append(CCFLAGS=['-O0','-g3','-Wall'])
+    env.Append(CCFLAGS=['-O0','-g3','-Wall', '-fpermissive'])
 
   elif env['compiler'] == 'intel':
     env.Append(CCFLAGS=['-O0','-g'])
@@ -154,7 +156,7 @@ elif env['compileMode'] == 'release':
   env.Append(CPPDEFINES=['NDEBUG'])
 
   if env['compiler'] == 'gnu':
-    env.Append(CCFLAGS=['-O3','-mtune=native'])
+    env.Append(CCFLAGS=['-O3','-mtune=native', '-fpermissive'])
 
   elif env['compiler'] == 'intel':
     env.Append(CCFLAGS=['-O2'])
@@ -224,20 +226,24 @@ if env['writeNetCDF'] == True:
   # set netCDF location
   if 'netCDFDir' in env:
     env.Append(CPPPATH=[env['netCDFDir']+'/include'])
+    env.Append(LIBPATH=[env['netCDFDir']+'/lib'])
 
 # set the precompiler flags, includes and libraries for ASAGI
 if env['asagi'] == True:
   env.Append(CPPDEFINES=['ASAGI'])
   if env['parallelization'] == 'none' or env['parallelization'] == 'cuda':
     env.Append(CPPDEFINES=['ASAGI_NOMPI'])
-  env.Append(LIBS=['netcdf_c++4'])
   env.Append(LIBS=['asagi'])
+  env.Append(LIBS=['netcdf_c++4'])
   if 'asagiDir' in env:
     env.Append(CPPPATH=[env['asagiDir']+'/include'])
     env.Append(LIBPATH=[env['asagiDir']+'/lib'])
   if 'netCDFDir' in env:
     env.Append(LIBPATH=[env['netCDFDir']+'/lib'])
 
+if env['benchmark'] == True:
+  env.Append(CPPDEFINES=['BENCHMARKING'])
+  
 # xml runtime parameters
 if env['xmlRuntime'] == True: #TODO
   print 'xml runtime parameters are not implemented so far.'
@@ -247,6 +253,8 @@ if env['xmlRuntime'] == True: #TODO
   if 'libxmlDir' in env:
     env.Append(CPPPATH=[env['libxmlDir']+'/include/libxml2'])
     env.Append(LIBPATH=[env['libxmlDir']+'/lib'])
+
+env.Append(CPPFLAGS='-DCONFIG_COMPILE_WITHOUT_SIERPI=1 -DSIMULATION_TSUNAMI_ZERO_THRESHOLD=0.0001 -DCONFIG_DEFAULT_FLOATING_POINT_TYPE=float')
 
 #
 # setup the program name and the build directory

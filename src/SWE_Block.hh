@@ -34,14 +34,12 @@
 
 #include "tools/help.hh"
 #include "scenarios/SWE_Scenario.h"
+#include "SWE_BlockGhost.hh"
 
 using namespace std;
 
 // number of blocks for multiple-block-version of the code
-const int BLOCKS=4;
-
-// forward declaration
-class SWE_Block1D;
+//const int BLOCKS=4;
 
 /**
  * SWE_Block is the main data structure to compute our shallow water model 
@@ -150,13 +148,13 @@ class SWE_Block {
     void setOutflowBoundaries();
     /// set type of boundary condition for the specified boundary
     void setBoundaryType(BoundaryEdge edge, BoundaryType boundtype, 
-                         const SWE_Block1D* inflow = NULL);
+                         const SWE_BlockGhost* inflow = NULL);
 //     void connectBoundaries(BoundaryEdge edge, SWE_Block &neighbour, BoundaryEdge neighEdge);
 
     /// return a pointer to proxy class to access the copy layer
-    virtual SWE_Block1D* registerCopyLayer(BoundaryEdge edge);
+    virtual SWE_BlockGhost* registerCopyLayer(BoundaryEdge edge);
     /// "grab" the ghost layer in order to set these values externally
-    virtual SWE_Block1D* grabGhostLayer(BoundaryEdge edge);
+    virtual SWE_BlockGhost* grabGhostLayer(BoundaryEdge edge);
     
     /// set values in ghost layers
     void setGhostLayer();
@@ -166,9 +164,6 @@ class SWE_Block {
     * @return	current value of the member variable #maxTimestep 
     */
     float getMaxTimestep() { return maxTimestep; };
-  
-    // compute the largest allowed time step for the current grid block
-    void computeMaxTimestep( const float i_dryTol = 0.1, const float i_cflNumber = 0.4 );
 
     /// execute a single time step of the simulation
     virtual void simulateTimestep(float dt) = 0;
@@ -210,26 +205,30 @@ class SWE_Block {
     void writeVTKFile3D(string filename);
     void writeVTKFileXML(string FileName, int offsetX, int offsetY);
 
-  // ---------- static methods ----------
-  
-    /// initialise static size and mesh widths of the Cartesian grid blocks
-    static void initGridData(int _nx, int _ny, float _dx, float _dy) {
-      nx = _nx; ny = _ny; dx = _dx; dy = _dy; 
-    };
-
-  // access methods to grid sizes
+    // access methods to grid sizes
     /// returns #nx, i.e. the grid size in x-direction 
-    static int getNx() { return nx;};
+    int getNx() { return nx;};
     /// returns #ny, i.e. the grid size in y-direction 
-    static int getNy() { return ny;};	
+    int getNy() { return ny;};
 
-  // Konstanten:
+    // access methods to dx and dy
+	float getDx() { return dx; }
+	float getDy() { return dy; }
+
+	// access methods to offsets on X and Y
+	float getOffsetX() { return offsetX; }
+	float getOffsetY() { return offsetY; }
+
+	// access method to the number of ghost cells
+	int getNghosts() { return nghosts; }
+
+	// Konstanten:
     /// static variable that holds the gravity constant (g = 9.81 m/s^2):
     static const float g;
 	
   protected:
     // Constructor und Destructor
-    SWE_Block(float _offsetX, float _offsetY);
+    SWE_Block(float _offsetX, float _offsetY, int _nx, int _ny, float _dx, float _dy, int _nghosts);
     virtual ~SWE_Block();
 
     // synchronisation Methods
@@ -248,6 +247,8 @@ class SWE_Block {
     /// set boundary conditions in ghost layers (set boundary conditions)
     virtual void setBoundaryConditions();
 
+    void computeMaxTimestep( const float i_dryTol = 0.1, const float i_cflNumber = 0.4 );
+
     // define arrays for unknowns: 
     // h (water level) and u,v (velocity in x and y direction)
     // hd, ud, and vd are respective CUDA arrays on GPU
@@ -259,7 +260,7 @@ class SWE_Block {
     /// type of boundary conditions at LEFT, RIGHT, TOP, and BOTTOM boundary
     BoundaryType boundary[4];
     /// for CONNECT boundaries: pointer to connected neighbour block
-    const SWE_Block1D* neighbour[4];
+    const SWE_BlockGhost* neighbour[4];
 
     /// maximum time step allowed to ensure stability of the method
     /**
@@ -276,11 +277,17 @@ class SWE_Block {
   // -> have to be identical for all grid blocks
   
     // grid size: number of cells (incl. ghost layer in x and y direction:
-    static int nx;	///< size of Cartesian arrays in x-direction
-    static int ny;	///< size of Cartesian arrays in y-direction
+    int nx;	///< size of Cartesian arrays in x-direction
+    int ny;	///< size of Cartesian arrays in y-direction
     // mesh size dx and dy:
-    static float dx;	///<  mesh size of the Cartesian grid in x-direction
-    static float dy;	///<  mesh size of the Cartesian grid in y-direction
+    float dx;	///<  mesh size of the Cartesian grid in x-direction
+    float dy;	///<  mesh size of the Cartesian grid in y-direction
+    // index start and end for internal domain that is to be simulated (without ghost layers)
+    // for finer grids, it may vary during the simulation
+    int nxint_s, nxint_e;	///< start and end index in x-direction
+    int nyint_s, nyint_e;	///< start and end index in y-direction
+    // number of ghost cells at one boundary edge
+    int nghosts;
 
     //--- for visualisation
     /// name of output file (for visualisation)
@@ -295,24 +302,6 @@ class SWE_Block {
 
 /// write unknowns of SWE_Block to output stream
 ostream& operator<< (ostream& os, const SWE_Block& swe);
-
-/**
- * SWE_Block1D is a simple struct that can represent a single line or row of 
- * SWE_Block unknowns (using the Float1D proxy class).
- * It is intended to unify the implementation of inflow and periodic boundary 
- * conditions, as well as the ghost/copy-layer connection between several SWE_Block
- * grids. 
- */ 
-struct SWE_Block1D {
-    SWE_Block1D(const Float1D& _h, const Float1D& _hu, const Float1D& _hv)
-    : h(_h), hu(_hu), hv(_hv) {};
-    SWE_Block1D(float* _h, float* _hu, float* _hv, int _size, int _stride=1)
-    : h(_h,_size,_stride), hu(_hu,_size,_stride), hv(_hv,_size,_stride) {};
-   
-    Float1D h;
-    Float1D hu;
-    Float1D hv;
-};
 
 
 #endif
