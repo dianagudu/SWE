@@ -90,7 +90,7 @@ SWE_WavePropagationAMR::SWE_WavePropagationAMR( float i_offsetX,
                                                     	int i_nghosts,
                                                     	InterpolationType i_interpolationStrategy):
   SWE_BlockAMR(i_offsetX,i_offsetY,i_nx,i_ny,i_dx,i_dy,i_rx,i_ry,i_nghosts,i_interpolationStrategy),
-  wavePropagationSolver(0.000001, 1.0),
+  wavePropagationSolver(SIMULATION_TSUNAMI_ZERO_THRESHOLD, 1.0),
   hNetUpdatesLeft  (i_nx+2*i_nghosts-1, i_ny+2*i_nghosts-2),
   hNetUpdatesRight (i_nx+2*i_nghosts-1, i_ny+2*i_nghosts-2),
   huNetUpdatesLeft (i_nx+2*i_nghosts-1, i_ny+2*i_nghosts-2),
@@ -193,7 +193,7 @@ void SWE_WavePropagationAMR::computeNumericalFluxes() {
   } // end of parallel for block
   #endif
 
-  if(maxWaveSpeed > 0.00001) { //TODO zeroTol
+  if(maxWaveSpeed > SIMULATION_TSUNAMI_ZERO_THRESHOLD) { //TODO zeroTol
     //compute the time step width
     //CFL-Codition
     //(max. wave speed) * dt / dx < .5
@@ -237,14 +237,14 @@ void SWE_WavePropagationAMR::updateUnknowns(float dt) {
 
         //TODO: dryTol
         if(h[i][j] < 0) {
-          if(h[i][j] < -0.1) {
+          if(h[i][j] < -SIMULATION_TSUNAMI_ZERO_THRESHOLD) {
             std::cerr << "Warning, negative height: (i,j)=(" << i << "," << j << ")=" << h[i][j] << std::endl;
             std::cerr << "         b: " << b[i][j] << std::endl;
           }
           //zero (small) negative depths
           h[i][j] = hu[i][j] = hv[i][j] = 0.;
         }
-        else if(h[i][j] < 0.1)
+        else if(h[i][j] < SIMULATION_TSUNAMI_ZERO_THRESHOLD)
           hu[i][j] = hv[i][j] = 0.; //no water, no speed!
       }
   }

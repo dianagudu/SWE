@@ -49,8 +49,8 @@ public:
 	float simulate_gts(const float i_dt_c);
 	float simulate(const float i_dt);
 	float simulate_level(const float i_dt_c,
-							 const int i_level,
-							 const priority_queue<SWE_BlockAMR*, vector<SWE_BlockAMR*>, CompareSWE_BlockAMR>& i_pq);
+						 const int i_level,
+						 priority_queue<SWE_BlockAMR*, vector<SWE_BlockAMR*>, CompareSWE_BlockAMR> i_pq);
 	void initBenchmarkingDataReceiver(const std::string i_baseName);
 
 #ifdef BENCHMARKING

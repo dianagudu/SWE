@@ -314,7 +314,9 @@ int main( int argc, char** argv ) {
   }
 #else
   // write the output at time zero
-  l_wavePropagationBlock.writeVTKFileXML(generateFileName(l_baseName,0,0,0), l_nX, l_nY);
+  for(int i=0; i<l_blockX; ++i)
+     for(int j=0; j<l_blockY; ++j)
+    	 l_wavePropagationBlock[i][j]->writeVTKFile(generateFileName(l_baseName, 0, i, j, ".vtk"));
 #endif
 
   // print some variables
@@ -335,7 +337,13 @@ int main( int argc, char** argv ) {
 
 #ifdef BENCHMARKING
   // init benchmarking data receiver
-  mgr.initBenchmarkingDataReceiver(std::string("single_wave_on_simple_beach"));
+  // name: bench_<l_blockX>x<l_blockY>_<l_nX>x<l_nY>/single_wave_on_simple_beach_<l_timeSteppingStrategy>_<l_interpolationScheme>
+  std::ostringstream oss;
+  oss << "bench_" << l_blockX << "x" << l_blockY << "_"
+	  << l_nX << "x" << l_nY << "/single_wave_on_simple_beach_"
+	  << l_timeSteppingStrategy << "_" << l_interpolationScheme;
+  mgr.initBenchmarkingDataReceiver(oss.str());
+//  mgr.initBenchmarkingDataReceiver(std::string("single_wave_on_simple_beach"));
 
   /* add times and positions to collect benchmarking data
    *
@@ -423,7 +431,9 @@ int main( int argc, char** argv ) {
          }
 #else
     // write vtk output
-    l_wavePropagationBlock.writeVTKFileXML(generateFileName(l_baseName,c,0,0), l_nX, l_nY);
+    for(int i=0; i<l_blockX; ++i)
+       for(int j=0; j<l_blockY; ++j)
+      	 l_wavePropagationBlock[i][j]->writeVTKFile(generateFileName(l_baseName, c, i, j, ".vtk"));
 #endif
   }
 

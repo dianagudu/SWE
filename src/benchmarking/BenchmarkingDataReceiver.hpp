@@ -116,7 +116,7 @@ public:
 				l_yPos >= i_offsetY && l_yPos < i_offsetY + i_nY*i_dY) {
 				int l_i = (l_xPos - i_offsetX) / i_dX + i_nghosts;
 				int l_j = (l_yPos - i_offsetY) / i_dY + i_nghosts;
-				it->second.writeData(i_time, i_h[l_i][l_j]+i_b[l_i][l_j]);
+				it->second.writeData(i_time, i_h[l_i][l_j], i_b[l_i][l_j]);
 			}
 		}
 

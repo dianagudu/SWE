@@ -38,65 +38,6 @@
 #include "../tools/help.hh"
 
 /**
- * Class that holds data at a specific time
- * in a specific position in the domain
- */
-class PointData {
-public:
-	/**
-	 * Constructor
-	 *
-	 * Sets all the fields in the class to some given values
-	 * @param i_t	time of measurement
-	 * @param i_x	position of measurement point in x-direction
-	 * @param i_y	position of measurement point in y-direction
-	 * @param i_h	value of water height at given position and time
-	 * @param i_b	value of bathymetry at given position and time
-	 * @param i_hu	value of momentum in x-direction at given position and time
-	 * @param i_hv	value of momentum in y-direction at given position and time
-	 */
-	PointData(const float i_t,
-			  const float i_x,
-			  const float i_y,
-			  const float i_h,
-			  const float i_b,
-			  const float i_hu,
-			  const float i_hv):
-			  t(i_t),
-			  x(i_x), y(i_y),
-			  h(i_h), b(i_b),
-			  hu(i_hu), hv(i_hv) {};
-
-	/**
-	 * overriding the < operator to compare two PointData objects
-	 * with respect to time: older objects are "smaller"
-	 *
-	 * @param i_other	the PointData object the current object is compared against
-	 * @return	0 if the time of measurement is the same
-	 * 		   -1 if this object has a smaller time (older)
-	 * 			1 if this object has a bigger time (more recent)
-	 */
-	bool operator<(const PointData& i_other) const {
-		return (t < i_other.t);
-	}
-
-private:
-
-	//! time of measurement
-	float t;
-
-	//! measurement position in 2D domain
-	float x;
-	float y;
-
-	//! simulated values at time t in (x,y)
-	float h;
-	float b;
-	float hu;
-	float hv;
-};
-
-/**
  *
  */
 class TimeSeriesDataReceiver {
@@ -131,14 +72,14 @@ public:
 	 * Writes a measurement for a given time
 	 *
 	 * @param i_time moment in time when the data were measured
-	 * @param i_value simulated value for given position and time
+	 * @param i_h simulated water height for given position and time
+	 * @param i_b bathymetry for given position and time
 	 */
-	void writeData(const float i_time, const float i_value) {
+	void writeData(const float i_time, const float i_h, const float i_b) {
 		// append value to the output file
 		ofstream l_outFile (outFileName.c_str(), ios::app);
-		if (l_outFile.is_open()) {
-			l_outFile << i_time << " " << i_value << endl;
-		}
+		if (l_outFile.is_open())
+			l_outFile << i_time << " " << i_h + i_b << endl;
 		l_outFile.close();
 	}
 
@@ -149,10 +90,6 @@ private:
 
 	//! output file name
 	std::string outFileName;
-
-	//! data at different times in fixed position
-	// to delete
-	std::vector<PointData> timeSeries;
 };
 
 /**
@@ -200,9 +137,9 @@ public:
 				for (int j=0; j<i_nY; j++)
 					l_outFile << (i_offsetX + (i+0.5f)*i_dX) << " "
 							  << (i_offsetY + (j+0.5f)*i_dY) << " "
-							  << (i_h[i+i_nghosts][j+i_nghosts] +
-								  i_b[i+i_nghosts][j+i_nghosts])
-							  << endl;
+							  << i_h[i+i_nghosts][j+i_nghosts]
+							   + i_b[i+i_nghosts][j+i_nghosts] << endl;
+
 		}
 		l_outFile.close();
 	}
@@ -213,10 +150,6 @@ private:
 
 	//! output file name
 	std::string outFileName;
-
-	//! data in different positions at fixed time
-	// to delete
-	std::vector<PointData> spatialData;
 };
 
 #endif //BENCHMARKING_DATA_STRUCTURES_HPP_

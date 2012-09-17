@@ -254,7 +254,7 @@ if env['xmlRuntime'] == True: #TODO
     env.Append(CPPPATH=[env['libxmlDir']+'/include/libxml2'])
     env.Append(LIBPATH=[env['libxmlDir']+'/lib'])
 
-env.Append(CPPFLAGS='-DCONFIG_COMPILE_WITHOUT_SIERPI=1 -DSIMULATION_TSUNAMI_ZERO_THRESHOLD=0.0001 -DCONFIG_DEFAULT_FLOATING_POINT_TYPE=float')
+env.Append(CPPFLAGS='-DCONFIG_COMPILE_WITHOUT_SIERPI=1 -DSIMULATION_TSUNAMI_ZERO_THRESHOLD=0.00001 -DCONFIG_DEFAULT_FLOATING_POINT_TYPE=float')
 
 #
 # setup the program name and the build directory

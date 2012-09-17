@@ -102,10 +102,10 @@ SWE_BlockGhost* SWE_BlockGhost::refine(int rx, int ry, float dx, float dy,
 	int _ny = (ny-2)*ry;
 	float _dx = dx/rx;
 	float _dy = dy/ry;
-	float 	sigma_h_x, sigma_h_y,
-			sigma_b_x, sigma_b_y,
-			sigma_hu_x, sigma_hu_y,
-			sigma_hv_x, sigma_hv_y;
+	float sigma_h_x, sigma_h_y,
+		  sigma_b_x, sigma_b_y,
+		  sigma_hu_x, sigma_hu_y,
+		  sigma_hv_x, sigma_hv_y;
 	float x, xc, y, yc;		// cell centres of fine and coarse cells
 	float u_max, v_max;		// maximum fine velocities over one coarse cell
 	float u_max_c, v_max_c;	// maximum coarse velocities over 3x3 neighbouring domain around a cell
@@ -136,8 +136,8 @@ SWE_BlockGhost* SWE_BlockGhost::refine(int rx, int ry, float dx, float dy,
 					y = offsetY + (l+0.5f)*_dy;
 					// TODO: interpolate bathymetry as well instead of getting it from the scenario
 					// TODO: remove scene and other unnecessary parameters
-					// (*_b)[k][l] = scene->getBathymetry(x, y);
-					(*_b)[k][l] = interpolate(b[i][j], sigma_b_x, sigma_b_y, x, xc, y, yc);
+					(*_b)[k][l] = scene->getBathymetry(x, y);
+					// (*_b)[k][l] = interpolate(b[i][j], sigma_b_x, sigma_b_y, x, xc, y, yc);
 					(*_h)[k][l] = interpolate(h[i][j]+b[i][j], sigma_h_x, sigma_h_y, x, xc, y, yc) - (*_b)[k][l];
 					(*_hu)[k][l] = interpolate(hu[i][j], sigma_hu_x, sigma_hu_y, x, xc, y, yc);
 					(*_hv)[k][l] = interpolate(hv[i][j], sigma_hv_x, sigma_hv_y, x, xc, y, yc);

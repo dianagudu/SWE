@@ -778,8 +778,6 @@ void SWE_Block::synchCopyLayerBeforeRead() {}
 // methods for VTK output (i.e., for visualisation)
 //==================================================================
 
-// TODO: modify vriteVTK... methods to use the new indexing
-
 /**
  * Write a VTK file (using XML format) for visualisation using ParaView
  * -> writes unknowns h, u, v, and b of a single SWE_Block
@@ -811,25 +809,26 @@ void SWE_Block::writeVTKFileXML(string FileName, int offsetX, int offsetY) {
 
    // Water surface height (h+b)
    Vtk_file << "<DataArray Name=\"H\" type=\"Float64\" format=\"ascii\">"<<endl;
-   for (int j=1; j<ny+1;j++)
-      for (int i=1;i<nx+1;i++)
-	 Vtk_file << h[i][j]+b[i][j] << endl;
+   for (int j=nghosts; j<ny+nghosts;j++)
+      for (int i=nghosts;i<nx+nghosts;i++)
+//    	  Vtk_file << h[i][j]+b[i][j] << endl;
+    	  Vtk_file << h[i][j] << endl;
    Vtk_file << "</DataArray>"<<endl;
    // Velocities
    Vtk_file << "<DataArray Name=\"U\" type=\"Float64\" format=\"ascii\">"<<endl;
-   for (int j=1; j<ny+1;j++)
-      for (int i=1;i<nx+1;i++)
+   for (int j=nghosts; j<ny+nghosts;j++)
+      for (int i=nghosts;i<nx+nghosts;i++)
 	 Vtk_file << ((h[i][j]>0) ? hu[i][j]/h[i][j] : 0.0 ) <<endl;
    Vtk_file << "</DataArray>"<<endl;
    Vtk_file << "<DataArray Name=\"V\" type=\"Float64\" format=\"ascii\">"<<endl;
-   for (int j=1; j<ny+1;j++)
-      for (int i=1;i<nx+1;i++)
+   for (int j=nghosts; j<ny+nghosts;j++)
+      for (int i=nghosts;i<nx+nghosts;i++)
 	 Vtk_file << ((h[i][j]>0) ? hv[i][j]/h[i][j] : 0.0 ) <<endl;
    Vtk_file << "</DataArray>"<<endl;
    // Bathymetry
    Vtk_file << "<DataArray Name=\"B\" type=\"Float64\" format=\"ascii\">"<<endl;
-   for (int j=1; j<ny+1;j++)
-      for (int i=1;i<nx+1;i++)
+   for (int j=nghosts; j<ny+nghosts;j++)
+      for (int i=nghosts;i<nx+nghosts;i++)
 	 Vtk_file << b[i][j]<<endl;
    Vtk_file << "</DataArray>"<<endl;
    Vtk_file << "</CellData>"<<endl;
@@ -860,34 +859,35 @@ void SWE_Block::writeVTKFile(string FileName) {
 	Vtk_file <<"X_COORDINATES "<< nx+1 <<" double"<<endl;
 	//GITTER PUNKTE
 	for (int i=0;i<nx+1;i++)
-				Vtk_file << i*dx<<endl;
+		Vtk_file << i*dx<<endl;
 	Vtk_file <<"Y_COORDINATES "<< ny+1 <<" double"<<endl;
 	//GITTER PUNKTE
 	for (int i=0;i<ny+1;i++)
-				Vtk_file << i*dy<<endl;
+		Vtk_file << i*dy<<endl;
 	Vtk_file <<"Z_COORDINATES 1 double"<<endl;
 	Vtk_file <<"0"<<endl;
 	Vtk_file << "CELL_DATA "<<ny*nx<<endl;
 	Vtk_file << "SCALARS H double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
 	//DOFS
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
-			Vtk_file <<(h[i][j]+b[i][j])<<endl;
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
+//			Vtk_file <<(h[i][j]+b[i][j])<<endl;
+			Vtk_file <<h[i][j]<<endl;
 	Vtk_file << "SCALARS U double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
 			Vtk_file << ((h[i][j]>0) ? hu[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS V double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
 			Vtk_file << ((h[i][j]>0) ? hv[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS B double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
 			Vtk_file <<b[i][j]<<endl;
 	Vtk_file.close();
 
@@ -923,24 +923,24 @@ void SWE_Block::writeVTKFile3D(string FileName) {
 	Vtk_file << "SCALARS H double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
 	//DOFS
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
-			//Vtk_file <<(h[i][j])<<endl;
-			Vtk_file <<(h[i][j]+b[i][j])<<endl;
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
+			Vtk_file <<(h[i][j])<<endl;
+//			Vtk_file <<(h[i][j]+b[i][j])<<endl;
 	Vtk_file << "SCALARS U double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
 			Vtk_file << ((h[i][j]>0) ? hu[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS V double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
 			Vtk_file << ((h[i][j]>0) ? hv[i][j]/h[i][j] : 0.0 ) <<endl;
 	Vtk_file << "SCALARS B double 1"<<endl;
 	Vtk_file << "LOOKUP_TABLE default"<<endl;
-	for (int j=1; j<ny+1;j++)
-		for (int i=1;i<nx+1;i++)
+	for (int j=nghosts; j<ny+nghosts;j++)
+		for (int i=nghosts;i<nx+nghosts;i++)
 			Vtk_file <<b[i][j]<<endl;
 	Vtk_file.close();
 
