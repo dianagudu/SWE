@@ -75,14 +75,6 @@ class SWE_BlockAMR : public SWE_Block {
     virtual SWE_BlockGhost* registerCopyLayer(BoundaryEdge edge);
 
     /**
-     * Sets the neighbouring block at a given boundary edge
-     *
-     * @param neigh	pointer to a neighbouring block
-     * @param edge	one of the four boundary edges of the block
-     */
-    void setBlockNeighbour(SWE_BlockAMR* neigh, BoundaryEdge edge);
-
-    /**
      * The method sets the values in the copy layer of a given edge
      * by coarsening or refining the values at the edge of the block
      *
@@ -109,6 +101,35 @@ class SWE_BlockAMR : public SWE_Block {
      */
     int getRefinementLevel() {return rx;};
 
+    void decreaseComputationalDomain();
+    void resetComputationalDomainMax();
+    void resetComputationalDomainMin();
+
+    /**
+     * Updates the values in the ghost layer of a given edge
+     *
+     * @param edge one of the four boundary edges of the block
+     */
+    void setGhostLayerEdge(BoundaryEdge edge);
+
+    /**
+     * Sets the refinement level of neighbouring block
+     * at a given boundary edge
+     *
+     * @param neigh	pointer to a neighbouring block
+     * @param edge	one of the four boundary edges of the block
+     */
+    void setNeighbourRefinementLevel(int i_rxy, BoundaryEdge edge);
+
+#ifdef NOMPI
+    /**
+     * Sets the neighbouring block at a given boundary edge
+     *
+     * @param neigh	pointer to a neighbouring block
+     * @param edge	one of the four boundary edges of the block
+     */
+    void setBlockNeighbour(SWE_BlockAMR* neigh, BoundaryEdge edge);
+
     /**
      * Method that gets the block neighbour at a given boundary edge
      *
@@ -116,12 +137,7 @@ class SWE_BlockAMR : public SWE_Block {
      * @return		a pointer to a neighbouring block
      */
     SWE_BlockAMR* getNeighbour(BoundaryEdge edge) { return block_neighbour[edge]; };
-
-    void decreaseComputationalDomain();
-    void resetComputationalDomainMax();
-    void resetComputationalDomainMin();
-
-    void setGhostLayerEdge(BoundaryEdge edge);
+#endif
 
   private:
     SWE_BlockGhost* getProxyCopyLayer(BoundaryEdge edge);
@@ -142,8 +158,6 @@ class SWE_BlockAMR : public SWE_Block {
     int rx;
     /** refinement factor in the y-direction */
     int ry;
-    /** pointers to neighbouring blocks in each direction */
-    SWE_BlockAMR* block_neighbour[4];
     /** array of copy layers for all edges */
     SWE_BlockGhost* copyLayer[4];
     SWE_BlockGhost* proxyCopyLayer[4];
@@ -151,6 +165,12 @@ class SWE_BlockAMR : public SWE_Block {
     SWE_BlockGhost* startCopyLayer[4];
     SWE_BlockGhost* endCopyLayer[4];
     SWE_BlockGhost* delta[4];
+    /** refinement levels of neighbours */
+    int neighbourRefinementLevel[4];
+#ifdef NOMPI
+    /** pointers to neighbouring blocks in each direction */
+    SWE_BlockAMR* block_neighbour[4];
+#endif
 
     /** scenario */
     SWE_Scenario* scene;

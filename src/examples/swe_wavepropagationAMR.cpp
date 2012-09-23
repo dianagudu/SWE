@@ -240,7 +240,11 @@ int main( int argc, char** argv ) {
      for(int j=0; j<l_blockY; ++j) {
 		l_wavePropagationBlock[i+1][j]->setBlockNeighbour(l_wavePropagationBlock[i][j], BND_LEFT);
 		l_wavePropagationBlock[i][j]->setBlockNeighbour(l_wavePropagationBlock[i+1][j], BND_RIGHT);
-        leftOutflow[i][j] = l_wavePropagationBlock[i+1][j]->registerCopyLayer(BND_LEFT);
+
+		l_wavePropagationBlock[i+1][j]->setNeighbourRefinementLevel(l_rxy[i][j], BND_LEFT);
+		l_wavePropagationBlock[i][j]->setNeighbourRefinementLevel(l_rxy[i+1][j], BND_RIGHT);
+
+		leftOutflow[i][j] = l_wavePropagationBlock[i+1][j]->registerCopyLayer(BND_LEFT);
         l_wavePropagationBlock[i][j]->setBoundaryType(BND_RIGHT, CONNECT, leftOutflow[i][j]);
         rightOutflow[i][j] = l_wavePropagationBlock[i][j]->registerCopyLayer(BND_RIGHT);
         l_wavePropagationBlock[i+1][j]->setBoundaryType(BND_LEFT, CONNECT, rightOutflow[i][j]);
@@ -256,6 +260,10 @@ int main( int argc, char** argv ) {
      for(int j=0; j<l_blockY-1; ++j) {
 		l_wavePropagationBlock[i][j+1]->setBlockNeighbour(l_wavePropagationBlock[i][j], BND_BOTTOM);
 		l_wavePropagationBlock[i][j]->setBlockNeighbour(l_wavePropagationBlock[i][j+1], BND_TOP);
+
+		l_wavePropagationBlock[i][j+1]->setNeighbourRefinementLevel(l_rxy[i][j], BND_BOTTOM);
+		l_wavePropagationBlock[i][j]->setNeighbourRefinementLevel(l_rxy[i][j+1], BND_TOP);
+
         botOutflow[i][j] = l_wavePropagationBlock[i][j+1]->registerCopyLayer(BND_BOTTOM);
         l_wavePropagationBlock[i][j]->setBoundaryType(BND_TOP, CONNECT, botOutflow[i][j]);
         topOutflow[i][j] = l_wavePropagationBlock[i][j]->registerCopyLayer(BND_TOP);

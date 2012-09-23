@@ -59,10 +59,6 @@ SWE_BlockAMR::SWE_BlockAMR(float i_offsetX,
 						   ry(i_ry),
 						   interpolationStrategy(i_interpolationStrategy) {
 	resetComputationalDomainMax();
-	block_neighbour[BND_LEFT] = NULL;
-	block_neighbour[BND_RIGHT] = NULL;
-	block_neighbour[BND_BOTTOM] = NULL;
-	block_neighbour[BND_TOP] = NULL;
 }
 
 void SWE_BlockAMR::initScenario(SWE_Scenario &i_scenario,
@@ -71,12 +67,17 @@ void SWE_BlockAMR::initScenario(SWE_Scenario &i_scenario,
 	scene = &i_scenario;
 }
 
+#ifdef NOMPI
 /**
  * Stores a pointer to the neighbouring block
- * TODO: change this!! will not work for MPI
  */
 void SWE_BlockAMR::setBlockNeighbour(SWE_BlockAMR* i_neighbour, BoundaryEdge i_edge) {
 	block_neighbour[i_edge] = i_neighbour;
+}
+#endif
+
+void SWE_BlockAMR::setNeighbourRefinementLevel(int i_rxy, BoundaryEdge i_edge) {
+	neighbourRefinementLevel[i_edge] = i_rxy;
 }
 
 /**
@@ -85,16 +86,16 @@ void SWE_BlockAMR::setBlockNeighbour(SWE_BlockAMR* i_neighbour, BoundaryEdge i_e
  */
 SWE_BlockGhost* SWE_BlockAMR::registerCopyLayer(BoundaryEdge i_edge) {
 	// for same resolution blocks, use proxy copy layer
-	if (block_neighbour[i_edge]->getRefinementLevel() == getRefinementLevel()) {
+	if (neighbourRefinementLevel[i_edge] == getRefinementLevel()) {
 		copyLayer[i_edge] = SWE_Block::registerCopyLayer(i_edge);
 		proxyCopyLayer[i_edge] = copyLayer[i_edge];
 		return copyLayer[i_edge];
 	}
 
 	// neighbour sizes
-	int l_nx = block_neighbour[i_edge]->getNx();
-	int l_ny = block_neighbour[i_edge]->getNy();
-	int l_nghosts = block_neighbour[i_edge]->getNghosts();
+	int l_nx = nx * neighbourRefinementLevel[i_edge] / getRefinementLevel();
+	int l_ny = ny * neighbourRefinementLevel[i_edge] / getRefinementLevel();
+	int l_nghosts = (nghosts == 1 ? 1 : nghosts * neighbourRefinementLevel[i_edge] / getRefinementLevel());
 	int l_xCopy, l_yCopy; //size of copy layer
 
 	// get the size of the copy layer depending on the edge
@@ -113,7 +114,7 @@ SWE_BlockGhost* SWE_BlockAMR::registerCopyLayer(BoundaryEdge i_edge) {
 
 	// in case the neighbour on the edge is finer than the current block
 	// create the necessary blocks for higher order reconstruction
-	if (block_neighbour[i_edge]->getRefinementLevel() > getRefinementLevel()) {
+	if (neighbourRefinementLevel[i_edge] > getRefinementLevel()) {
 		if (interpolationStrategy != SPACE) {
 			// for refining using time interpolation,
 			// keep both copy layers at beginning and end of coarse time step
@@ -146,13 +147,13 @@ SWE_BlockGhost* SWE_BlockAMR::getProxyCopyLayer(BoundaryEdge i_edge) {
 	// therefore different proxy copy layers
 	switch (interpolationStrategy) {
 	case APPROX_TIME_SPACE:
-		if (block_neighbour[i_edge]->getRefinementLevel() > getRefinementLevel())
+		if (neighbourRefinementLevel[i_edge] > getRefinementLevel())
 			return getFineProxyCopyLayer_singleLayer(i_edge);
 		else
 			return getCoarseProxyCopyLayer_singleLayer(i_edge);
 	case TIME_SPACE:
 	case SPACE:
-		if (block_neighbour[i_edge]->getRefinementLevel() > getRefinementLevel())
+		if (neighbourRefinementLevel[i_edge] > getRefinementLevel())
 			return getFineProxyCopyLayer_multiLayer(i_edge);
 		else
 			return getCoarseProxyCopyLayer_multiLayer(i_edge);
@@ -179,11 +180,9 @@ SWE_BlockGhost* SWE_BlockAMR::getFineProxyCopyLayer_singleLayer(BoundaryEdge i_e
 }
 
 SWE_BlockGhost* SWE_BlockAMR::getFineProxyCopyLayer_multiLayer(BoundaryEdge i_edge) {
-	int l_nx = block_neighbour[i_edge]->getNx();
-	int l_ny = block_neighbour[i_edge]->getNy();
-	int l_nghosts = block_neighbour[i_edge]->getNghosts();
-	int l_rx = block_neighbour[i_edge]->getRefinementLevel() / getRefinementLevel();
-	int l_ry = block_neighbour[i_edge]->getRefinementLevel() / getRefinementLevel();
+	int l_rx = neighbourRefinementLevel[i_edge] / getRefinementLevel();
+	int l_ry = neighbourRefinementLevel[i_edge] / getRefinementLevel();
+	int l_nghosts = nghosts * l_rx;
 	int c, r, nc, nr;
 
 	switch (i_edge) {
@@ -225,8 +224,8 @@ SWE_BlockGhost* SWE_BlockAMR::getFineProxyCopyLayer_multiLayer(BoundaryEdge i_ed
  */
 SWE_BlockGhost* SWE_BlockAMR::getCoarseProxyCopyLayer_singleLayer(BoundaryEdge i_edge) {
 	int c, r, nc, nr;
-	int l_rx = getRefinementLevel() / block_neighbour[i_edge]->getRefinementLevel();
-	int l_ry = getRefinementLevel() / block_neighbour[i_edge]->getRefinementLevel();
+	int l_rx = getRefinementLevel() / neighbourRefinementLevel[i_edge];
+	int l_ry = getRefinementLevel() / neighbourRefinementLevel[i_edge];
 
 	switch (i_edge) {
 	case BND_LEFT: c = r = 1; nc = l_rx; nr = ny; break;
@@ -240,11 +239,10 @@ SWE_BlockGhost* SWE_BlockAMR::getCoarseProxyCopyLayer_singleLayer(BoundaryEdge i
 }
 
 SWE_BlockGhost* SWE_BlockAMR::getCoarseProxyCopyLayer_multiLayer(BoundaryEdge i_edge) {
-	int l_ny = block_neighbour[i_edge]->getNy();
-	int l_nghosts = block_neighbour[i_edge]->getNghosts();
 	int c, r, nc, nr;
-	int l_rx = getRefinementLevel() / block_neighbour[i_edge]->getRefinementLevel();
-	int l_ry = getRefinementLevel() / block_neighbour[i_edge]->getRefinementLevel();
+	int l_rx = getRefinementLevel() / neighbourRefinementLevel[i_edge];
+	int l_ry = getRefinementLevel() / neighbourRefinementLevel[i_edge];
+	int l_nghosts = nghosts / l_rx;
 
 	switch (i_edge) {
 	case BND_LEFT:
@@ -291,10 +289,10 @@ void SWE_BlockAMR::synchCopyLayerBeforeRead(TimeSteppingType i_timeStepping,
 											float dt_coarse) {
 	if (boundary[i_edge] == CONNECT) {
 		// do nothing for same resolution neighbour
-		if (block_neighbour[i_edge]->getRefinementLevel() == getRefinementLevel())
+		if (neighbourRefinementLevel[i_edge] == getRefinementLevel())
 			return;
 		// neighbour is coarser
-		if (block_neighbour[i_edge]->getRefinementLevel() < getRefinementLevel())
+		if (neighbourRefinementLevel[i_edge] < getRefinementLevel())
 			setCopyLayerCoarse(i_edge);
 		else {
 			// neighbour is finer
@@ -320,10 +318,10 @@ void SWE_BlockAMR::synchCopyLayerBeforeRead(TimeSteppingType i_timeStepping,
  */
 void SWE_BlockAMR::synchBeforeRead() {
 	for (int l_edge = 0; l_edge < 4; ++l_edge)
-		if (boundary[l_edge] == CONNECT && block_neighbour[l_edge]->getRefinementLevel() > getRefinementLevel()) {
+		if (boundary[l_edge] == CONNECT && neighbourRefinementLevel[l_edge] > getRefinementLevel()) {
 			setCopyLayerFine(l_edge, startCopyLayer[l_edge]);
-			int l_rx = block_neighbour[l_edge]->getRefinementLevel()/getRefinementLevel();
-			int l_ry = block_neighbour[l_edge]->getRefinementLevel()/getRefinementLevel();
+			int l_rx = neighbourRefinementLevel[l_edge]/getRefinementLevel();
+			int l_ry = neighbourRefinementLevel[l_edge]/getRefinementLevel();
 
 			// APPROX_TIME_SPACE: set delta
 			// the difference between coarse value at beginning and end of time-step
@@ -371,9 +369,9 @@ void SWE_BlockAMR::synchBeforeRead() {
  */
 void SWE_BlockAMR::synchAfterWrite() {
 	for (int l_edge = 0; l_edge < 4; ++l_edge)
-		if (boundary[l_edge] == CONNECT && block_neighbour[l_edge]->getRefinementLevel() > getRefinementLevel()) {
-			int l_rx = block_neighbour[l_edge]->getRefinementLevel()/getRefinementLevel();
-			int l_ry = block_neighbour[l_edge]->getRefinementLevel()/getRefinementLevel();
+		if (boundary[l_edge] == CONNECT && neighbourRefinementLevel[l_edge] > getRefinementLevel()) {
+			int l_rx = neighbourRefinementLevel[l_edge]/getRefinementLevel();
+			int l_ry = neighbourRefinementLevel[l_edge]/getRefinementLevel();
 
 			// TIME_SPACE: refine copy layer at end of time-step
 			if (interpolationStrategy == TIME_SPACE)
@@ -451,8 +449,8 @@ void SWE_BlockAMR::timeInterpolateCopyLayer(BoundaryEdge i_edge, float t, float 
 void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 	int l_nx = copyLayer[i_edge]->nx;
 	int l_ny = copyLayer[i_edge]->ny;
-	int l_rx = getRefinementLevel() / block_neighbour[i_edge]->getRefinementLevel();
-	int l_ry = getRefinementLevel() / block_neighbour[i_edge]->getRefinementLevel();
+	int l_rx = getRefinementLevel() / neighbourRefinementLevel[i_edge];
+	int l_ry = getRefinementLevel() / neighbourRefinementLevel[i_edge];
 
 	SWE_BlockGhost* tmp = proxyCopyLayer[i_edge]->coarsen(l_rx, l_ry);
 
@@ -495,9 +493,9 @@ void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) {
 	int l_nx = layer->nx;
 	int l_ny = layer->ny;
-	int l_rx = block_neighbour[i_edge]->getRefinementLevel() / getRefinementLevel();
-	int l_ry = block_neighbour[i_edge]->getRefinementLevel() / getRefinementLevel();
-	int l_nghosts = block_neighbour[i_edge]->getNghosts();
+	int l_rx = neighbourRefinementLevel[i_edge] / getRefinementLevel();
+	int l_ry = neighbourRefinementLevel[i_edge] / getRefinementLevel();
+	int l_nghosts = (nghosts == 1 ? 1 : nghosts * l_rx);
 
 //	SWE_BlockGhost* tmp = proxyCopyLayer[i_edge]->refine_constant(l_rx, l_ry);
 
