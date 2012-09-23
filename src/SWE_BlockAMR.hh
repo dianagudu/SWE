@@ -117,16 +117,6 @@ class SWE_BlockAMR : public SWE_Block {
      */
     SWE_BlockAMR* getNeighbour(BoundaryEdge edge) { return block_neighbour[edge]; };
 
-    /**
-     * Gets the opposite edge
-     * e.g. if edge is BND_LEFT, it returns BND_RIGHT
-     *
-     * @param edge one of the four boundaries of a block
-     * @return the opposite boundary edge
-     */
-    static BoundaryEdge getOppositeEdge(BoundaryEdge edge);
-
-    void increaseComputationalDomain();
     void decreaseComputationalDomain();
     void resetComputationalDomainMax();
     void resetComputationalDomainMin();

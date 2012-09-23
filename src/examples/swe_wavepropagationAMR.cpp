@@ -203,7 +203,7 @@ int main( int argc, char** argv ) {
   for(int i=0; i<l_blockX; ++i) {
      for(int j=0; j<l_blockY; ++j) {
 
-    	 if (l_interpolationScheme == APPROX_TIME_SPACE)
+    	if (l_interpolationScheme == APPROX_TIME_SPACE)
     		l_nghosts = 1;
     	else
     		l_nghosts = 2*l_rxy[i][j];
@@ -381,9 +381,9 @@ int main( int argc, char** argv ) {
     while( l_t < l_checkPoints[c] ) {
 #ifndef CUDA
     if (l_timeSteppingStrategy == LTS)
-      l_t += mgr.simulate(l_checkPoints[c] - l_checkPoints[c-1]);
+      l_t += mgr.simulate(l_checkPoints[c] - l_t);
     else
-      l_t += mgr.simulate_gts(l_checkPoints[c] - l_checkPoints[c-1]);
+      l_t += mgr.simulate_gts(l_checkPoints[c] - l_t);
 
 #else
       // set values in ghost cells:

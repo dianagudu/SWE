@@ -136,8 +136,8 @@ SWE_BlockGhost* SWE_BlockGhost::refine(int rx, int ry, float dx, float dy,
 					y = offsetY + (l+0.5f)*_dy;
 					// TODO: interpolate bathymetry as well instead of getting it from the scenario
 					// TODO: remove scene and other unnecessary parameters
-					(*_b)[k][l] = scene->getBathymetry(x, y);
-					// (*_b)[k][l] = interpolate(b[i][j], sigma_b_x, sigma_b_y, x, xc, y, yc);
+					// (*_b)[k][l] = scene->getBathymetry(x, y);
+					(*_b)[k][l] = interpolate(b[i][j], sigma_b_x, sigma_b_y, x, xc, y, yc);
 					(*_h)[k][l] = interpolate(h[i][j]+b[i][j], sigma_h_x, sigma_h_y, x, xc, y, yc) - (*_b)[k][l];
 					(*_hu)[k][l] = interpolate(hu[i][j], sigma_hu_x, sigma_hu_y, x, xc, y, yc);
 					(*_hv)[k][l] = interpolate(hv[i][j], sigma_hv_x, sigma_hv_y, x, xc, y, yc);
@@ -160,14 +160,14 @@ SWE_BlockGhost* SWE_BlockGhost::refine(int rx, int ry, float dx, float dy,
 				}
 			}
 			// if new velocity extrema are introduced, limit all the velocities in the fine cells
-			if (u_max > u_max_c)
-				for (int k=(i-1)*rx; k<i*rx; ++k)
-					for (int l=(j-1)*ry; l<j*ry; ++l)
-						(*_hu)[k][l] = (*_h)[k][l] * hu[i][j]/h[i][j];
-			if (v_max > v_max_c)
-				for (int k=(i-1)*rx; k<i*rx; ++k)
-					for (int l=(j-1)*ry; l<j*ry; ++l)
-						(*_hv)[k][l] = (*_h)[k][l] * hv[i][j]/h[i][j];
+//			if (u_max > u_max_c)
+//				for (int k=(i-1)*rx; k<i*rx; ++k)
+//					for (int l=(j-1)*ry; l<j*ry; ++l)
+//						(*_hu)[k][l] = (*_h)[k][l] * hu[i][j]/h[i][j];
+//			if (v_max > v_max_c)
+//				for (int k=(i-1)*rx; k<i*rx; ++k)
+//					for (int l=(j-1)*ry; l<j*ry; ++l)
+//						(*_hv)[k][l] = (*_h)[k][l] * hv[i][j]/h[i][j];
 		}
 	return new SWE_BlockGhost(*_h, *_b, *_hu, *_hv);
 }

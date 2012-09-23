@@ -84,14 +84,34 @@ float SWE_BlockManager::simulate_gts(const float i_dt_c) {
 
 	while (l_t < i_dt_c) {
 		float l_dt = (float) 600.;
-
-		// update copy layers
-		for (int edge=0; edge<4; edge++) {
-			for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it)
-				if ((*it)->getNeighbour(edge) != NULL)
-					(*it)->getNeighbour(edge)->synchCopyLayerBeforeRead(GTS, SWE_BlockAMR::getOppositeEdge(edge), l_t, l_t);
-			for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it)
-				(*it)->setGhostLayerEdge(edge);
+		// update copy layers and ghost layers
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			if ((*it)->getNeighbour(BND_LEFT) != NULL)
+				(*it)->getNeighbour(BND_LEFT)->synchCopyLayerBeforeRead(GTS, BND_RIGHT, l_t, l_t);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			(*it)->setGhostLayerEdge(BND_LEFT);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			if ((*it)->getNeighbour(BND_RIGHT) != NULL)
+				(*it)->getNeighbour(BND_RIGHT)->synchCopyLayerBeforeRead(GTS, BND_LEFT, l_t, l_t);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			(*it)->setGhostLayerEdge(BND_RIGHT);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			if ((*it)->getNeighbour(BND_BOTTOM) != NULL)
+				(*it)->getNeighbour(BND_BOTTOM)->synchCopyLayerBeforeRead(GTS, BND_TOP, l_t, l_t);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			(*it)->setGhostLayerEdge(BND_BOTTOM);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			if ((*it)->getNeighbour(BND_TOP) != NULL)
+				(*it)->getNeighbour(BND_TOP)->synchCopyLayerBeforeRead(GTS, BND_BOTTOM, l_t, l_t);
+		}
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			(*it)->setGhostLayerEdge(BND_TOP);
 		}
 
 		// execute Euler time step:
@@ -146,7 +166,8 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 	// build a temporary vector with the blocks on level l
 	vector<SWE_BlockAMR*> l_blocks;
 	while (!i_pq.empty() && i_pq.top()->getRefinementLevel() == i_level) {
-		i_pq.top()->resetComputationalDomainMax();
+		if (interpolationScheme == SPACE)
+			i_pq.top()->resetComputationalDomainMax();
 		l_blocks.push_back(i_pq.top());
 		i_pq.pop();
 	}
@@ -154,17 +175,33 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 	while (l_t < i_dt_c) {
 		float l_dt = (float) 600.;
 		// update copy and ghost layers by using the two-phase update scheme:
-		// 1. update left-right boundary cells
-		// 2. update bottom-top boundary cells
 
-		for (int edge=0; edge<4; edge++) {
-			// update copy layer
-			for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it)
-				if ((*it)->getNeighbour(edge) != NULL)
-					(*it)->getNeighbour(edge)->synchCopyLayerBeforeRead(LTS, SWE_BlockAMR::getOppositeEdge(edge), l_t, i_dt_c);
-			// set ghost layer
-			for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it)
-				(*it)->setGhostLayerEdge(edge);
+		// 1. update left-right boundary cells
+		// update copy layer
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			if ((*it)->getNeighbour(BND_LEFT) != NULL)
+				(*it)->getNeighbour(BND_LEFT)->synchCopyLayerBeforeRead(LTS, BND_RIGHT, l_t, i_dt_c);
+			if ((*it)->getNeighbour(BND_RIGHT) != NULL)
+				(*it)->getNeighbour(BND_RIGHT)->synchCopyLayerBeforeRead(LTS, BND_LEFT, l_t, i_dt_c);
+		}
+		// set ghost layer
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			(*it)->setGhostLayerEdge(BND_LEFT);
+			(*it)->setGhostLayerEdge(BND_RIGHT);
+		}
+
+		// 2. update bottom-top boundary cells
+		// update copy layer
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			if ((*it)->getNeighbour(BND_BOTTOM) != NULL)
+				(*it)->getNeighbour(BND_BOTTOM)->synchCopyLayerBeforeRead(LTS, BND_TOP, l_t, i_dt_c);
+			if ((*it)->getNeighbour(BND_TOP) != NULL)
+				(*it)->getNeighbour(BND_TOP)->synchCopyLayerBeforeRead(LTS, BND_BOTTOM, l_t, i_dt_c);
+		}
+		// set ghost layer
+		for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it) {
+			(*it)->setGhostLayerEdge(BND_BOTTOM);
+			(*it)->setGhostLayerEdge(BND_TOP);
 		}
 
 		// execute Euler time step:
@@ -183,14 +220,13 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 			(*it)->updateUnknowns(l_dt);
 			if (interpolationScheme != SPACE) (*it)->synchAfterWrite();
 			// for all blocks that are not the coarsest,
-			if (i_level != blocks.top()->getRefinementLevel() && interpolationScheme == SPACE)
-				(*it)->decreaseComputationalDomain();
+//			if (i_level != blocks.top()->getRefinementLevel() && interpolationScheme == SPACE)
+//				(*it)->decreaseComputationalDomain();
 		}
 
 		// simulate blocks on the next refinement level
 		if (!i_pq.empty())
 			l_dt = simulate_level(l_dt, i_pq.top()->getRefinementLevel(), i_pq);
-
 #ifdef BENCHMARKING
 		else {
 			time += l_dt;
@@ -215,9 +251,14 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 		l_t += l_dt;
 		l_num_ts++;
 
-		if (i_level != blocks.top()->getRefinementLevel() && interpolationScheme == SPACE)
+		// for all blocks on this refinement level, decrease the computational domain (except for the coarsest grids)
+		// stop if the number of time-steps is greater than the refinement level (number of valid ghost cells)
+		if (i_level != blocks.top()->getRefinementLevel() && interpolationScheme == SPACE) {
+			for(vector<SWE_BlockAMR*>::iterator it = l_blocks.begin(); it != l_blocks.end(); ++it)
+				(*it)->decreaseComputationalDomain();
 			if (l_num_ts >= i_level)
 				break;
+		}
 	}
 	return l_t;
 }

@@ -190,26 +190,26 @@ SWE_BlockGhost* SWE_BlockAMR::getFineProxyCopyLayer_multiLayer(BoundaryEdge i_ed
 	case BND_LEFT:
 		c = nghosts - 1;
 		r = 0;
-		nc = l_nghosts*l_rx + 2;
+		nc = l_nghosts/l_rx + 2;
 		nr = ny + 2*nghosts;
 		break;
 	case BND_RIGHT:
-		c = nx+nghosts - l_nghosts*l_rx - 1;
+		c = nx+nghosts - l_nghosts/l_rx - 1;
 		r = 0;
-		nc = l_nghosts*l_rx + 2;
+		nc = l_nghosts/l_rx + 2;
 		nr = ny + 2*nghosts;
 		break;
 	case BND_BOTTOM:
 		c = 0;
 		r = nghosts - 1;
 		nc = nx + 2*nghosts;
-		nr = l_nghosts*l_ry + 2;
+		nr = l_nghosts/l_ry + 2;
 		break;
 	case BND_TOP:
 		c = 0;
-		r = ny+nghosts - l_nghosts*l_ry - 1;
+		r = ny+nghosts - l_nghosts/l_ry - 1;
 		nc = nx + 2*nghosts;
-		nr = l_nghosts*l_ry + 2;
+		nr = l_nghosts/l_ry + 2;
 		break;
 	}
 
@@ -460,12 +460,6 @@ void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 	if (interpolationStrategy == APPROX_TIME_SPACE) { // single layer
 		switch (i_edge) {
 		case BND_LEFT:
-			for (int i=1; i<l_ny-1; i++) {
-				copyLayer[i_edge]->h[0][i] = tmp->h[0][i-1];
-				copyLayer[i_edge]->hu[0][i] = tmp->hu[0][i-1];
-				copyLayer[i_edge]->hv[0][i] = tmp->hv[0][i-1];
-			}
-			break;
 		case BND_RIGHT:
 			for (int i=1; i<l_ny-1; i++) {
 				copyLayer[i_edge]->h[0][i] = tmp->h[0][i-1];
@@ -474,12 +468,6 @@ void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 			}
 			break;
 		case BND_BOTTOM:
-			for (int i=1; i<l_nx-1; i++) {
-				copyLayer[i_edge]->h[i][0] = tmp->h[i-1][0];
-				copyLayer[i_edge]->hu[i][0] = tmp->hu[i-1][0];
-				copyLayer[i_edge]->hv[i][0] = tmp->hv[i-1][0];
-			}
-			break;
 		case BND_TOP:
 			for (int i=1; i<l_nx-1; i++) {
 				copyLayer[i_edge]->h[i][0] = tmp->h[i-1][0];
@@ -522,68 +510,59 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 	}
 
 	// copy the result in the copy layer
-	// the result is always 2*_nghosts elements smaller in one direction
-	switch (i_edge) {
-	case BND_LEFT:
-		for (int i=0; i<l_nx; i++)
-			for (int j=l_nghosts; j<l_ny-l_nghosts; j++) {
-				layer->h[i][j] = tmp->h[i][j-l_nghosts];
-				layer->hu[i][j] = tmp->hu[i][j-l_nghosts];
-				layer->hv[i][j] = tmp->hv[i][j-l_nghosts];
+	if (interpolationStrategy == APPROX_TIME_SPACE) { // single layer
+		switch (i_edge) {
+		case BND_LEFT:
+			for (int i=1; i<l_ny-1; i++) {
+				layer->h[0][i] = tmp->h[0][i-1];
+				layer->hu[0][i] = tmp->hu[0][i-1];
+				layer->hv[0][i] = tmp->hv[0][i-1];
 			}
-		break;
-	case BND_RIGHT:
-		for (int i=0; i<l_nx; i++)
-			for (int j=l_nghosts; j<l_ny-l_nghosts; j++) {
-				layer->h[i][j] = tmp->h[i][j-l_nghosts];
-				layer->hu[i][j] = tmp->hu[i][j-l_nghosts];
-				layer->hv[i][j] = tmp->hv[i][j-l_nghosts];
+			break;
+		case BND_RIGHT:
+			for (int i=1; i<l_ny-1; i++) {
+				layer->h[0][i] = tmp->h[l_rx-1][i-1];
+				layer->hu[0][i] = tmp->hu[l_rx-1][i-1];
+				layer->hv[0][i] = tmp->hv[l_rx-1][i-1];
 			}
-		break;
-	case BND_BOTTOM:
-		for (int i=l_nghosts; i<l_nx-l_nghosts; i++)
-			for (int j=0; j<l_ny; j++) {
-				layer->h[i][j] = tmp->h[i-l_nghosts][j];
-				layer->hu[i][j] = tmp->hu[i-l_nghosts][j];
-				layer->hv[i][j] = tmp->hv[i-l_nghosts][j];
+			break;
+		case BND_BOTTOM:
+			for (int i=1; i<l_nx-1; i++) {
+				layer->h[i][0] = tmp->h[i-1][0];
+				layer->hu[i][0] = tmp->hu[i-1][0];
+				layer->hv[i][0] = tmp->hv[i-1][0];
 			}
-		break;
-	case BND_TOP:
-		for (int i=l_nghosts; i<l_nx-l_nghosts; i++)
-			for (int j=0; j<l_ny; j++) {
-				layer->h[i][j] = tmp->h[i-l_nghosts][j];
-				layer->hu[i][j] = tmp->hu[i-l_nghosts][j];
-				layer->hv[i][j] = tmp->hv[i-l_nghosts][j];
+			break;
+		case BND_TOP:
+			for (int i=1; i<l_nx-1; i++) {
+				layer->h[i][0] = tmp->h[i-1][l_ry-1];
+				layer->hu[i][0] = tmp->hu[i-1][l_ry-1];
+				layer->hv[i][0] = tmp->hv[i-1][l_ry-1];
 			}
-		break;
+			break;
+		}
+	} else { // multi layer -> the result is always 2*l_nghosts elements smaller in one direction
+		switch (i_edge) {
+		case BND_LEFT:
+		case BND_RIGHT:
+			for (int i=0; i<l_nx; i++)
+				for (int j=l_nghosts; j<l_ny-l_nghosts; j++) {
+					layer->h[i][j] = tmp->h[i][j-l_nghosts];
+					layer->hu[i][j] = tmp->hu[i][j-l_nghosts];
+					layer->hv[i][j] = tmp->hv[i][j-l_nghosts];
+				}
+			break;
+		case BND_BOTTOM:
+		case BND_TOP:
+			for (int i=l_nghosts; i<l_nx-l_nghosts; i++)
+				for (int j=0; j<l_ny; j++) {
+					layer->h[i][j] = tmp->h[i-l_nghosts][j];
+					layer->hu[i][j] = tmp->hu[i-l_nghosts][j];
+					layer->hv[i][j] = tmp->hv[i-l_nghosts][j];
+				}
+			break;
+		}
 	}
-}
-
-/**
- * @param i_edge
- * @return
- */
-static BoundaryEdge SWE_BlockAMR::getOppositeEdge(BoundaryEdge i_edge) {
-	switch (i_edge) {
-	case BND_LEFT:
-		return BND_RIGHT;
-	case BND_RIGHT:
-		return BND_LEFT;
-	case BND_BOTTOM:
-		return BND_TOP;
-	case BND_TOP:
-		return BND_BOTTOM;
-	}
-}
-
-/**
- *
- */
-void SWE_BlockAMR::increaseComputationalDomain() {
-	if (boundary[BND_LEFT] == CONNECT) nxint_s--;
-	if (boundary[BND_BOTTOM] == CONNECT) nyint_s--;
-	if (boundary[BND_RIGHT] == CONNECT) nxint_e++;
-	if (boundary[BND_TOP] == CONNECT) nyint_e++;
 }
 
 /**
@@ -600,9 +579,15 @@ void SWE_BlockAMR::decreaseComputationalDomain() {
  *
  */
 void SWE_BlockAMR::resetComputationalDomainMax() {
-	nxint_s = nyint_s = 1;
-	nxint_e = nx + 2 * nghosts - 2;
-	nyint_e = ny + 2 * nghosts - 2;
+	if (nghosts == 1) {
+		nxint_s = nyint_s = 1;
+		nxint_e = nx + 2 * nghosts - 2;
+		nyint_e = ny + 2 * nghosts - 2;
+	} else {
+		nxint_s = nyint_s = nghosts / 2;
+		nxint_e = nx + 3 * nghosts / 2 - 1;
+		nyint_e = ny + 3 * nghosts / 2 - 1;
+	}
 }
 
 /**
