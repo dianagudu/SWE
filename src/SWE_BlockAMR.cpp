@@ -59,6 +59,16 @@ SWE_BlockAMR::SWE_BlockAMR(float i_offsetX,
 						   ry(i_ry),
 						   interpolationStrategy(i_interpolationStrategy) {
 	resetComputationalDomainMax();
+	neighbourRefinementLevel[BND_LEFT] = 0;
+	neighbourRefinementLevel[BND_RIGHT] = 0;
+	neighbourRefinementLevel[BND_BOTTOM] = 0;
+	neighbourRefinementLevel[BND_TOP] = 0;
+#ifdef NOMPI
+	block_neighbour[BND_LEFT] = NULL;
+	block_neighbour[BND_RIGHT] = NULL;
+	block_neighbour[BND_BOTTOM] = NULL;
+	block_neighbour[BND_TOP] = NULL;
+#endif
 }
 
 void SWE_BlockAMR::initScenario(SWE_Scenario &i_scenario,
@@ -85,8 +95,9 @@ void SWE_BlockAMR::setNeighbourRefinementLevel(int i_rxy, BoundaryEdge i_edge) {
  * @return
  */
 SWE_BlockGhost* SWE_BlockAMR::registerCopyLayer(BoundaryEdge i_edge) {
+
 	// for same resolution blocks, use proxy copy layer
-	if (neighbourRefinementLevel[i_edge] == getRefinementLevel()) {
+	if (neighbourRefinementLevel[i_edge] == getRefinementLevel() || neighbourRefinementLevel[i_edge] == 0) {
 		copyLayer[i_edge] = SWE_Block::registerCopyLayer(i_edge);
 		proxyCopyLayer[i_edge] = copyLayer[i_edge];
 		return copyLayer[i_edge];
@@ -287,7 +298,7 @@ void SWE_BlockAMR::synchCopyLayerBeforeRead(TimeSteppingType i_timeStepping,
 											BoundaryEdge i_edge,
 											float t,
 											float dt_coarse) {
-	if (boundary[i_edge] == CONNECT) {
+	if (neighbourRefinementLevel[i_edge] != 0) {
 		// do nothing for same resolution neighbour
 		if (neighbourRefinementLevel[i_edge] == getRefinementLevel())
 			return;
@@ -318,7 +329,7 @@ void SWE_BlockAMR::synchCopyLayerBeforeRead(TimeSteppingType i_timeStepping,
  */
 void SWE_BlockAMR::synchBeforeRead() {
 	for (int l_edge = 0; l_edge < 4; ++l_edge)
-		if (boundary[l_edge] == CONNECT && neighbourRefinementLevel[l_edge] > getRefinementLevel()) {
+		if (neighbourRefinementLevel[l_edge] > getRefinementLevel()) {
 			setCopyLayerFine(l_edge, startCopyLayer[l_edge]);
 			int l_rx = neighbourRefinementLevel[l_edge]/getRefinementLevel();
 			int l_ry = neighbourRefinementLevel[l_edge]/getRefinementLevel();
@@ -369,7 +380,7 @@ void SWE_BlockAMR::synchBeforeRead() {
  */
 void SWE_BlockAMR::synchAfterWrite() {
 	for (int l_edge = 0; l_edge < 4; ++l_edge)
-		if (boundary[l_edge] == CONNECT && neighbourRefinementLevel[l_edge] > getRefinementLevel()) {
+		if (neighbourRefinementLevel[l_edge] > getRefinementLevel()) {
 			int l_rx = neighbourRefinementLevel[l_edge]/getRefinementLevel();
 			int l_ry = neighbourRefinementLevel[l_edge]/getRefinementLevel();
 

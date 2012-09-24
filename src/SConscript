@@ -56,7 +56,8 @@ else:
 if env['adaptive'] == True:
 	sourceFiles.append( [ 'SWE_BlockGhost.cpp' ] )
 	sourceFiles.append( [ 'SWE_BlockAMR.cpp' ] )
-	sourceFiles.append( [ 'SWE_BlockManager.cpp' ] )
+	if env['parallelization'] not in ['mpi', 'mpi_with_cuda']:
+	 sourceFiles.append( [ 'SWE_BlockManager.cpp' ] )
   
 # compile the files defined so far, important step because of possible different compilers                  
 for i in sourceFiles:
@@ -105,7 +106,10 @@ if env['parallelization'] in ['none', 'cuda']:
     print '** The selected configuration is not implemented.'
     Exit(1)
 elif env['parallelization'] in ['mpi_with_cuda', 'mpi']:
-  sourceFiles.append( ['examples/swe_mpi.cpp'] )
+  if env['adaptive'] == True:
+    sourceFiles.append( ['examples/swe_mpiAMR.cpp'] )
+  else:
+    sourceFiles.append( ['examples/swe_mpi.cpp'] )
 else:
   print '** The selected configuration is not implemented.'
   Exit(1)
