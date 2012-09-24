@@ -51,7 +51,9 @@
 #include "../scenarios/SWE_AsagiScenario.hpp"
 #else
 #include "../scenarios/SWE_simple_scenarios.h"
+#ifdef BENCHMARKING
 #include "../scenarios/SWE_SingleWaveOnSimpleBeach.h"
+#endif
 #endif
 
 #ifndef STATICLOGGER
@@ -172,12 +174,15 @@ int main( int argc, char** argv ) {
                             	"/home/diana/workspace_c++/geo_information/tohoku_gebco_ucsb3_500m_hawaii_displ.nc",
                             	(float) 28800., simulationArea);
 #else
+#ifndef BENCHMARKING
   //create a simple artificial scenario
-//  SWE_BathymetryDamBreakScenario l_scenario;
+  SWE_BathymetryDamBreakScenario l_scenario;
 //  SWE_SplashingPoolScenario l_scenario;
 //  SWE_SplashingConeScenario l_scenario;
 //  SWE_SeaAtRestScenario l_scenario;
+#else
   SWE_SingleWaveOnSimpleBeach l_scenario;
+#endif
 #endif
   //! number of checkpoints for visualization (at each checkpoint in time, an output file is written).
   int l_numberOfCheckPoints = 40;
@@ -220,14 +225,19 @@ int main( int argc, char** argv ) {
      };
   };
 
-  // set outflow boundaries
+  cout<<l_scenario.getBoundaryType(BND_BOTTOM)<<endl;
+  cout<<l_scenario.getBoundaryType(BND_TOP)<<endl;
+  cout<<l_scenario.getBoundaryType(BND_LEFT)<<endl;
+  cout<<l_scenario.getBoundaryType(BND_RIGHT)<<endl;
+
+  // set boundaries
   for (i=0; i<l_blockX; i++) {
-	  l_wavePropagationBlock[i][0]->setBoundaryType(BND_BOTTOM, OUTFLOW, NULL);
-	  l_wavePropagationBlock[i][l_blockY-1]->setBoundaryType(BND_TOP, OUTFLOW, NULL);
+	  l_wavePropagationBlock[i][0]->setBoundaryType(BND_BOTTOM, l_scenario.getBoundaryType(BND_BOTTOM), NULL);
+	  l_wavePropagationBlock[i][l_blockY-1]->setBoundaryType(BND_TOP, l_scenario.getBoundaryType(BND_TOP), NULL);
   }
   for (i=0; i<l_blockY; i++) {
-  	  l_wavePropagationBlock[0][i]->setBoundaryType(BND_LEFT, OUTFLOW, NULL);
-  	  l_wavePropagationBlock[l_blockX-1][i]->setBoundaryType(BND_RIGHT, OUTFLOW, NULL);
+  	  l_wavePropagationBlock[0][i]->setBoundaryType(BND_LEFT, l_scenario.getBoundaryType(BND_LEFT), NULL);
+  	  l_wavePropagationBlock[l_blockX-1][i]->setBoundaryType(BND_RIGHT, l_scenario.getBoundaryType(BND_RIGHT), NULL);
   }
 
   // connect SWE blocks at boundaries
@@ -351,7 +361,6 @@ int main( int argc, char** argv ) {
 	  << l_nX << "x" << l_nY << "/single_wave_on_simple_beach_"
 	  << l_timeSteppingStrategy << "_" << l_interpolationScheme;
   mgr.initBenchmarkingDataReceiver(oss.str());
-//  mgr.initBenchmarkingDataReceiver(std::string("single_wave_on_simple_beach"));
 
   /* add times and positions to collect benchmarking data
    *
