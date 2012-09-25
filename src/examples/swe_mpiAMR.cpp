@@ -62,22 +62,32 @@ static tools::Logger s_sweLogger;
 #include "../SWE_BlockManager.hh"
 
 // Exchanges the left and right ghost layers.
-void exchangeLeftRightGhostLayers(const int i_leftNeighborRank,
+void exchangeLeftRightGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
+								  const float i_t,
+								  const int i_leftNeighborRank,
 						  		  SWE_BlockGhost* o_leftInflow,
 								  SWE_BlockGhost* i_leftOutflow,
+								  const int i_leftNeighbourRefinementLevel,
 								  const int i_rightNeighborRank,
 								  SWE_BlockGhost* o_rightInflow,
 								  SWE_BlockGhost* i_rightOutflow,
+								  const int i_rightNeighbourRefinementLevel,
+								  const int i_refinementLevel,
 								  const MPI_Datatype i_mpiCols,
 								  MPI_Datatype i_mpiSendType[4]);
 
 // Exchanges the bottom and top ghost layers.
-void exchangeBottomTopGhostLayers(const int i_bottomNeighborRank,
+void exchangeBottomTopGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
+								  const float i_t,
+								  const int i_bottomNeighborRank,
 								  SWE_BlockGhost* o_bottomNeighborInflow,
 								  SWE_BlockGhost* i_bottomNeighborOutflow,
+								  const int i_bottomNeighbourRefinementLevel,
 								  const int i_topNeighborRank,
 								  SWE_BlockGhost* o_topNeighborInflow,
 								  SWE_BlockGhost* i_topNeighborOutflow,
+								  const int i_topNeighbourRefinementLevel,
+								  const int i_refinementLevel,
 								  const MPI_Datatype i_mpiRows,
 								  MPI_Datatype i_mpiSendType[4]);
 
@@ -275,21 +285,30 @@ int main(int argc, char** argv) {
 												  l_interpolationScheme); // interpolation scheme for ghost layers
 	l_wavePropagationBlock.initScenario(l_scenario, true);
 
+	int l_leftNeighbourRefinementLevel=0;
+	int l_rightNeighbourRefinementLevel=0;
+	int l_bottomNeighbourRefinementLevel=0;
+	int l_topNeighbourRefinementLevel=0;
+
 	/*
 	 * Connect SWE blocks at boundaries
 	 */
 	// left and right boundaries
 	l_sweLogger.printString("Connecting SWE blocks at left boundaries.");
-	if (l_blockPositionX > 0)
-		l_wavePropagationBlock.setNeighbourRefinementLevel(l_rxy[l_blockPositionX-1][l_blockPositionY], BND_LEFT);
+	if (l_blockPositionX > 0) {
+		l_leftNeighbourRefinementLevel = l_rxy[l_blockPositionX-1][l_blockPositionY];
+		l_wavePropagationBlock.setNeighbourRefinementLevel(l_leftNeighbourRefinementLevel, BND_LEFT);
+	}
 	SWE_BlockGhost* l_leftInflow = l_wavePropagationBlock.grabGhostLayer(BND_LEFT);
 	SWE_BlockGhost* l_leftOutflow = l_wavePropagationBlock.registerCopyLayer(BND_LEFT);
 	if (l_blockPositionX == 0)
 		l_wavePropagationBlock.setBoundaryType(BND_LEFT, l_scenario.getBoundaryType(BND_LEFT));
 
 	l_sweLogger.printString("Connecting SWE blocks at right boundaries.");
-	if (l_blockPositionX < l_blockX - 1)
-		l_wavePropagationBlock.setNeighbourRefinementLevel(l_rxy[l_blockPositionX+1][l_blockPositionY], BND_RIGHT);
+	if (l_blockPositionX < l_blockX - 1) {
+		l_rightNeighbourRefinementLevel = l_rxy[l_blockPositionX+1][l_blockPositionY];
+		l_wavePropagationBlock.setNeighbourRefinementLevel(l_rightNeighbourRefinementLevel, BND_RIGHT);
+	}
 	SWE_BlockGhost* l_rightInflow = l_wavePropagationBlock.grabGhostLayer(BND_RIGHT);
 	SWE_BlockGhost* l_rightOutflow = l_wavePropagationBlock.registerCopyLayer(BND_RIGHT);
 	if (l_blockPositionX == l_blockX - 1)
@@ -297,16 +316,20 @@ int main(int argc, char** argv) {
 
 	// bottom and top boundaries
 	l_sweLogger.printString("Connecting SWE blocks at bottom boundaries.");
-	if (l_blockPositionY > 0)
-		l_wavePropagationBlock.setNeighbourRefinementLevel(l_rxy[l_blockPositionX][l_blockPositionY-1], BND_BOTTOM);
+	if (l_blockPositionY > 0) {
+		l_bottomNeighbourRefinementLevel = l_rxy[l_blockPositionX][l_blockPositionY-1];
+		l_wavePropagationBlock.setNeighbourRefinementLevel(l_bottomNeighbourRefinementLevel, BND_BOTTOM);
+	}
 	SWE_BlockGhost* l_bottomInflow = l_wavePropagationBlock.grabGhostLayer(BND_BOTTOM);
 	SWE_BlockGhost* l_bottomOutflow = l_wavePropagationBlock.registerCopyLayer(BND_BOTTOM);
 	if (l_blockPositionY == 0)
 		l_wavePropagationBlock.setBoundaryType(BND_BOTTOM, l_scenario.getBoundaryType(BND_BOTTOM));
 
 	l_sweLogger.printString("Connecting SWE blocks at top boundaries.");
-	if (l_blockPositionY < l_blockY - 1)
-		l_wavePropagationBlock.setNeighbourRefinementLevel(l_rxy[l_blockPositionX][l_blockPositionY+1], BND_TOP);
+	if (l_blockPositionY < l_blockY - 1) {
+		l_topNeighbourRefinementLevel = l_rxy[l_blockPositionX][l_blockPositionY+1];
+		l_wavePropagationBlock.setNeighbourRefinementLevel(l_topNeighbourRefinementLevel, BND_TOP);
+	}
 	SWE_BlockGhost* l_topInflow = l_wavePropagationBlock.grabGhostLayer(BND_TOP);
 	SWE_BlockGhost* l_topOutflow = l_wavePropagationBlock.registerCopyLayer(BND_TOP);
 	if (l_blockPositionY == l_blockY - 1)
@@ -352,14 +375,16 @@ int main(int argc, char** argv) {
 	MPI_Type_contiguous(l_nghosts*(l_nYLocal+2*l_nghosts), MPI_FLOAT, &l_mpiCols);
 	MPI_Type_commit(&l_mpiCols);
 
-	// if the blocks have the same resolution, then a proxy block is used as a copy layer
-	// if the blocks have different resolutions, then a newly allocated block is used as a copy layer
-	// either create different datatypes types for each boundary, depending on the implementation of the copy layer,
-	// or allocate the copy layer even in the first case (same resolution blocks)
-	// the first option is implemented below
+	/**
+	 * If the blocks have the same resolution, then a proxy block is used as a copy layer.
+	 * If the blocks have different resolutions, then a newly allocated block is used as a copy layer.
+	 * Solution: either create different datatypes types for each boundary, depending on the
+	 * implementation of the copy layer, or allocate the copy layer even in the first case (same resolution blocks)
+	 * The first option is implemented below.
+	 */
 	MPI_Datatype l_mpiSendType[4];
 	// left boundary type
-	if (l_blockPositionX > 0 && l_rxy[l_blockPositionX-1][l_blockPositionY] == l_rX)
+	if (l_leftNeighbourRefinementLevel == l_rX)
 		l_mpiSendType[BND_LEFT] = l_mpiCols;
 	else {
 		MPI_Type_contiguous(l_leftOutflow->nx * l_leftOutflow->ny, MPI_FLOAT, &l_mpiSendType[BND_LEFT]);
@@ -367,7 +392,7 @@ int main(int argc, char** argv) {
 	}
 
 	// right boundary type
-	if (l_blockPositionX < l_blockX - 1 && l_rxy[l_blockPositionX+1][l_blockPositionY] == l_rX)
+	if (l_rightNeighbourRefinementLevel == l_rX)
 		l_mpiSendType[BND_RIGHT] = l_mpiCols;
 	else {
 		MPI_Type_contiguous(l_rightOutflow->nx * l_rightOutflow->ny, MPI_FLOAT, &l_mpiSendType[BND_RIGHT]);
@@ -375,7 +400,7 @@ int main(int argc, char** argv) {
 	}
 
 	// bottom boundary type
-	if (l_blockPositionY > 0 && l_rxy[l_blockPositionX][l_blockPositionY-1] == l_rX)
+	if (l_bottomNeighbourRefinementLevel == l_rX)
 		l_mpiSendType[BND_BOTTOM] = l_mpiRows;
 	else {
 		MPI_Type_contiguous(l_bottomOutflow->nx * l_bottomOutflow->ny, MPI_FLOAT, &l_mpiSendType[BND_BOTTOM]);
@@ -383,7 +408,7 @@ int main(int argc, char** argv) {
 	}
 
 	// top boundary type
-	if (l_blockPositionY < l_blockY - 1 && l_rxy[l_blockPositionX][l_blockPositionY+1] == l_rX)
+	if (l_topNeighbourRefinementLevel == l_rX)
 		l_mpiSendType[BND_TOP] = l_mpiRows;
 	else {
 		MPI_Type_contiguous(l_topOutflow->nx * l_topOutflow->ny, MPI_FLOAT, &l_mpiSendType[BND_TOP]);
@@ -418,16 +443,14 @@ int main(int argc, char** argv) {
 	}
 
 	// intially exchange ghost and copy layers
-	l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_LEFT, 0, 0);
-	l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_RIGHT, 0, 0);
-	exchangeLeftRightGhostLayers( l_leftNeighborRank,  l_leftInflow,  l_leftOutflow,
-								  l_rightNeighborRank, l_rightInflow, l_rightOutflow,
-								  l_mpiCols, l_mpiSendType );
-	l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_BOTTOM, 0, 0);
-	l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_TOP, 0, 0);
-	exchangeBottomTopGhostLayers( l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,
-								  l_topNeighborRank,    l_topInflow,    l_topOutflow,
-								  l_mpiRows, l_mpiSendType );
+	exchangeLeftRightGhostLayers( &l_wavePropagationBlock, 0.0,
+								  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow, l_leftNeighbourRefinementLevel,
+								  l_rightNeighborRank, l_rightInflow, l_rightOutflow,l_rightNeighbourRefinementLevel,
+								  l_rX, l_mpiCols, l_mpiSendType );
+	exchangeBottomTopGhostLayers( &l_wavePropagationBlock, 0.0,
+			  	  	  	  	  	  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
+								  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
+								  l_rX, l_mpiRows, l_mpiSendType );
 	// set values in ghost cells
 	l_wavePropagationBlock.setGhostLayer();
 
@@ -487,17 +510,15 @@ int main(int argc, char** argv) {
 			// exchange ghost and copy layers
 
 			// left - right direction
-			l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_LEFT, l_t, l_t);
-			l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_RIGHT, l_t, l_t);
-			exchangeLeftRightGhostLayers( l_leftNeighborRank,  l_leftInflow,  l_leftOutflow,
-										  l_rightNeighborRank, l_rightInflow, l_rightOutflow,
-										  l_mpiCols, l_mpiSendType );
+			exchangeLeftRightGhostLayers( &l_wavePropagationBlock, l_t,
+					  	  	  	  	  	  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow,	l_leftNeighbourRefinementLevel,
+										  l_rightNeighborRank, l_rightInflow, l_rightOutflow,	l_rightNeighbourRefinementLevel,
+										  l_rX, l_mpiCols, l_mpiSendType );
 			// bottom - top direction
-			l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_BOTTOM, l_t, l_t);
-			l_wavePropagationBlock.synchCopyLayerBeforeRead(GTS, BND_TOP, l_t, l_t);
-			exchangeBottomTopGhostLayers( l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,
-										  l_topNeighborRank,    l_topInflow,    l_topOutflow,
-										  l_mpiRows, l_mpiSendType );
+			exchangeBottomTopGhostLayers( &l_wavePropagationBlock, l_t,
+					  	  	  	  	  	  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
+										  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
+										  l_rX, l_mpiRows, l_mpiSendType );
 
 			// reset the cpu clock
 			l_sweLogger.resetCpuClockToCurrentTime();
@@ -573,6 +594,15 @@ int main(int argc, char** argv) {
 }
 
 /**
+ * The updated ghost layers are needed to refine a copy layer
+ * Therefore, the coarser grids first have to receive the ghost layers,
+ * update (refine) the copy layers and then send them to the finer grids.
+ * The finer grids first update (coarsen) the copy layers, send them to the
+ * coarser grids and then receive the ghost layers.
+ * This scheme is implemented with blocking operations: MPI_Send, MPI_Recv
+ */
+
+/**
  * Exchanges the left and right ghost layers with MPI's SendReceive.
  *
  * @param i_leftNeighborRank MPI rank of the  left neighbor.
@@ -583,41 +613,65 @@ int main(int argc, char** argv) {
  * @param i_rightOutflow layer, where the right neighbor reads form.
  * @param i_mpiCol MPI data type for the vertical gost layers.
  */
-void exchangeLeftRightGhostLayers( const int i_leftNeighborRank,  SWE_BlockGhost* o_leftInflow,  SWE_BlockGhost* i_leftOutflow,
-                                   const int i_rightNeighborRank, SWE_BlockGhost* o_rightInflow, SWE_BlockGhost* i_rightOutflow,
-                                   const MPI_Datatype i_mpiCols,  MPI_Datatype i_mpiSendType[4]) {
-
+void exchangeLeftRightGhostLayers( SWE_WavePropagationAMR* i_wavePropagationBlock, const float i_t,
+								   const int i_leftNeighborRank,  SWE_BlockGhost* o_leftInflow,  SWE_BlockGhost* i_leftOutflow, const int i_leftNeighbourRefinementLevel,
+                                   const int i_rightNeighborRank, SWE_BlockGhost* o_rightInflow, SWE_BlockGhost* i_rightOutflow, const int i_rightNeighbourRefinementLevel,
+                                   const int i_refinementLevel, const MPI_Datatype i_mpiCols,  MPI_Datatype i_mpiSendType[4]) {
   MPI_Status l_status;
 
-  // send to left, receive from the right:
-  MPI_Sendrecv( i_leftOutflow->h.elemVector(), 1, i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  1,
-				o_rightInflow->h.elemVector(), 1, i_mpiCols, 				i_rightNeighborRank, 1,
-				MPI_COMM_WORLD, &l_status );
+  // if left neighbour is coarser, send and then receive
+  if (i_leftNeighbourRefinementLevel < i_refinementLevel) {
+	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_LEFT, i_t, i_t);
 
-  MPI_Sendrecv( i_leftOutflow->hu.elemVector(), 1, i_mpiSendType[BND_LEFT], i_leftNeighborRank,  2,
-				o_rightInflow->hu.elemVector(), 1, i_mpiCols, 				i_rightNeighborRank, 2,
-				MPI_COMM_WORLD, &l_status );
+	MPI_Send( i_leftOutflow->h.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  1, MPI_COMM_WORLD );
+	MPI_Send( i_leftOutflow->hu.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  2, MPI_COMM_WORLD );
+	MPI_Send( i_leftOutflow->hv.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  3, MPI_COMM_WORLD );
 
-  MPI_Sendrecv( i_leftOutflow->hv.elemVector(), 1, i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  3,
-				o_rightInflow->hv.elemVector(), 1, i_mpiCols, 				i_rightNeighborRank, 3,
-				MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_leftInflow->h.elemVector(),		1, i_mpiCols,	i_leftNeighborRank,  4, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_leftInflow->hu.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  5, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_leftInflow->hv.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  6, MPI_COMM_WORLD, &l_status );
+  }
+  // if right neighbour is finer, receive and then send
+  if (i_rightNeighbourRefinementLevel > i_refinementLevel) {
+ 	MPI_Recv( o_rightInflow->h.elemVector(), 	1,	i_mpiCols,	i_rightNeighborRank, 1, MPI_COMM_WORLD, &l_status );
+ 	MPI_Recv( o_rightInflow->hu.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 2, MPI_COMM_WORLD, &l_status );
+ 	MPI_Recv( o_rightInflow->hv.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 3, MPI_COMM_WORLD, &l_status );
 
-  // send to right, receive from the left:
-  MPI_Sendrecv( i_rightOutflow->h.elemVector(), 1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 4,
-				o_leftInflow->h.elemVector(),   1, i_mpiCols, 					i_leftNeighborRank,  4,
-				MPI_COMM_WORLD, &l_status );
+ 	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_RIGHT, i_t, i_t);
 
-  MPI_Sendrecv( i_rightOutflow->hu.elemVector(), 1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 5,
-				o_leftInflow->hu.elemVector(),   1, i_mpiCols, 					i_leftNeighborRank,  5,
-				MPI_COMM_WORLD, &l_status);
+ 	MPI_Send( i_rightOutflow->h.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 4, MPI_COMM_WORLD );
+ 	MPI_Send( i_rightOutflow->hu.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 5, MPI_COMM_WORLD );
+ 	MPI_Send( i_rightOutflow->hv.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 6, MPI_COMM_WORLD );
+  }
 
-  MPI_Sendrecv( i_rightOutflow->hv.elemVector(), 1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 6,
-				o_leftInflow->hv.elemVector(),   1, i_mpiCols, 					i_leftNeighborRank,  6,
-				MPI_COMM_WORLD, &l_status );
+  // if right neighbour is coarser, send and then receive
+  if (i_rightNeighbourRefinementLevel <= i_refinementLevel) {
+	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_RIGHT, i_t, i_t);
+	MPI_Send( i_rightOutflow->h.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 4, MPI_COMM_WORLD );
+	MPI_Send( i_rightOutflow->hu.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 5, MPI_COMM_WORLD );
+	MPI_Send( i_rightOutflow->hv.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 6, MPI_COMM_WORLD );
+
+	MPI_Recv( o_rightInflow->h.elemVector(), 	1,	i_mpiCols,	i_rightNeighborRank, 1, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_rightInflow->hu.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 2, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_rightInflow->hv.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 3, MPI_COMM_WORLD, &l_status );
+  }
+
+  // if left neighbour is finer, receive and then send
+  if (i_leftNeighbourRefinementLevel >= i_refinementLevel) {
+  	MPI_Recv( o_leftInflow->h.elemVector(),		1, i_mpiCols,	i_leftNeighborRank,  4, MPI_COMM_WORLD, &l_status );
+  	MPI_Recv( o_leftInflow->hu.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  5, MPI_COMM_WORLD, &l_status );
+  	MPI_Recv( o_leftInflow->hv.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  6, MPI_COMM_WORLD, &l_status );
+
+  	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_LEFT, i_t, i_t);
+
+  	MPI_Send( i_leftOutflow->h.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  1, MPI_COMM_WORLD );
+  	MPI_Send( i_leftOutflow->hu.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  2, MPI_COMM_WORLD );
+  	MPI_Send( i_leftOutflow->hv.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  3, MPI_COMM_WORLD );
+  }
 }
 
 /**
- * Exchanges the bottom and top ghost layers with MPI's SendReceive.
+ * Exchanges the bottom and top ghost layers with MPI blocking routines Send and Recv.
  *
  * @param i_bottomNeighborRank MPI rank of the bottom neighbor.
  * @param o_bottomNeighborInflow ghost layer, where the bottom neighbor writes into.
@@ -627,34 +681,62 @@ void exchangeLeftRightGhostLayers( const int i_leftNeighborRank,  SWE_BlockGhost
  * @param i_topNeighborOutflow ghost layer, where the top neighbor reads from.
  * @param i_mpiRow MPI data type for the horizontal ghost layers.
  */
-void exchangeBottomTopGhostLayers( const int i_bottomNeighborRank, SWE_BlockGhost* o_bottomNeighborInflow, SWE_BlockGhost* i_bottomNeighborOutflow,
-                                   const int i_topNeighborRank,    SWE_BlockGhost* o_topNeighborInflow,    SWE_BlockGhost* i_topNeighborOutflow,
-                                   const MPI_Datatype i_mpiRows,   MPI_Datatype i_mpiSendType[4]) {
+void exchangeBottomTopGhostLayers( SWE_WavePropagationAMR* i_wavePropagationBlock, const float i_t,
+		  	  	  	  	  	  	   const int i_bottomNeighborRank, SWE_BlockGhost* o_bottomNeighborInflow, SWE_BlockGhost* i_bottomNeighborOutflow, const int i_bottomNeighbourRefinementLevel,
+                                   const int i_topNeighborRank,    SWE_BlockGhost* o_topNeighborInflow,    SWE_BlockGhost* i_topNeighborOutflow, const int i_topNeighbourRefinementLevel,
+                                   const int i_refinementLevel, const MPI_Datatype i_mpiRows,   MPI_Datatype i_mpiSendType[4]) {
   MPI_Status l_status;
 
-  // send to bottom, receive from the top:
-  MPI_Sendrecv( i_bottomNeighborOutflow->h.elemVector(), 1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	11,
-				o_topNeighborInflow->h.elemVector(),     1, i_mpiRows,	 				i_topNeighborRank,		11,
-				MPI_COMM_WORLD, &l_status );
+  // if bottom neighbour is coarser, send and then receive
+  if (i_bottomNeighbourRefinementLevel <= i_refinementLevel) {
+	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_BOTTOM, i_t, i_t);
 
-  MPI_Sendrecv( i_bottomNeighborOutflow->hu.elemVector(), 1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank,	12,
-				o_topNeighborInflow->hu.elemVector(),     1, i_mpiRows, 				i_topNeighborRank,		12,
-				MPI_COMM_WORLD, &l_status );
+	MPI_Send( i_bottomNeighborOutflow->h.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	11, MPI_COMM_WORLD);
+	MPI_Send( i_bottomNeighborOutflow->hv.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	13, MPI_COMM_WORLD );
+	MPI_Send( i_bottomNeighborOutflow->hu.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank,	12, MPI_COMM_WORLD );
 
-  MPI_Sendrecv( i_bottomNeighborOutflow->hv.elemVector(), 1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	13,
-				o_topNeighborInflow->hv.elemVector(),     1, i_mpiRows,					i_topNeighborRank, 		13,
-				MPI_COMM_WORLD, &l_status);
+	MPI_Recv( o_bottomNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	14, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_bottomNeighborInflow->hu.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	15, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_bottomNeighborInflow->hv.elemVector(),	1, i_mpiRows, 	i_bottomNeighborRank,	16, MPI_COMM_WORLD, &l_status );
+  }
 
-  // send to top, receive from the bottom:
-  MPI_Sendrecv( i_topNeighborOutflow->h.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,		14,
-				o_bottomNeighborInflow->h.elemVector(), 1, i_mpiRows, 				i_bottomNeighborRank,	14,
-				MPI_COMM_WORLD, &l_status );
+  // if top neighbour is finer, receive and then send
+  if (i_topNeighbourRefinementLevel > i_refinementLevel) {
+	MPI_Recv( o_topNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	11, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_topNeighborInflow->hu.elemVector(),	1, i_mpiRows, 	i_topNeighborRank,	12, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_topNeighborInflow->hv.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	13, MPI_COMM_WORLD, &l_status );
 
-  MPI_Sendrecv( i_topNeighborOutflow->hu.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,		15,
-				o_bottomNeighborInflow->hu.elemVector(),1, i_mpiRows,				i_bottomNeighborRank,	15,
-				MPI_COMM_WORLD, &l_status );
+	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_TOP, i_t, i_t);
 
-  MPI_Sendrecv( i_topNeighborOutflow->hv.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,		16,
-				o_bottomNeighborInflow->hv.elemVector(),1, i_mpiRows, 				i_bottomNeighborRank,	16,
-				MPI_COMM_WORLD, &l_status );
+	MPI_Send( i_topNeighborOutflow->h.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	14, MPI_COMM_WORLD );
+	MPI_Send( i_topNeighborOutflow->hu.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	15, MPI_COMM_WORLD );
+	MPI_Send( i_topNeighborOutflow->hv.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	16, MPI_COMM_WORLD );
+  }
+
+  // if top neighbour is coarser, send and then receive
+  if (i_topNeighbourRefinementLevel <= i_refinementLevel) {
+	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_TOP, i_t, i_t);
+
+	MPI_Send( i_topNeighborOutflow->h.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	14, MPI_COMM_WORLD );
+	MPI_Send( i_topNeighborOutflow->hu.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	15, MPI_COMM_WORLD );
+	MPI_Send( i_topNeighborOutflow->hv.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	16, MPI_COMM_WORLD );
+
+	MPI_Recv( o_topNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	11, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_topNeighborInflow->hu.elemVector(),	1, i_mpiRows, 	i_topNeighborRank,	12, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_topNeighborInflow->hv.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	13, MPI_COMM_WORLD, &l_status );
+  }
+
+  // if bottom neighbour is finer, receive and then send
+  if (i_bottomNeighbourRefinementLevel > i_refinementLevel) {
+	MPI_Recv( o_bottomNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	14, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_bottomNeighborInflow->hu.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	15, MPI_COMM_WORLD, &l_status );
+	MPI_Recv( o_bottomNeighborInflow->hv.elemVector(),	1, i_mpiRows, 	i_bottomNeighborRank,	16, MPI_COMM_WORLD, &l_status );
+
+	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_BOTTOM, i_t, i_t);
+
+	MPI_Send( i_bottomNeighborOutflow->h.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	11, MPI_COMM_WORLD );
+	MPI_Send( i_bottomNeighborOutflow->hv.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	13, MPI_COMM_WORLD );
+	MPI_Send( i_bottomNeighborOutflow->hu.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank,	12, MPI_COMM_WORLD );
+  }
+
 }

@@ -160,14 +160,14 @@ SWE_BlockGhost* SWE_BlockGhost::refine(int rx, int ry, float dx, float dy,
 				}
 			}
 			// if new velocity extrema are introduced, limit all the velocities in the fine cells
-//			if (u_max > u_max_c)
-//				for (int k=(i-1)*rx; k<i*rx; ++k)
-//					for (int l=(j-1)*ry; l<j*ry; ++l)
-//						(*_hu)[k][l] = (*_h)[k][l] * hu[i][j]/h[i][j];
-//			if (v_max > v_max_c)
-//				for (int k=(i-1)*rx; k<i*rx; ++k)
-//					for (int l=(j-1)*ry; l<j*ry; ++l)
-//						(*_hv)[k][l] = (*_h)[k][l] * hv[i][j]/h[i][j];
+			if (u_max > u_max_c)
+				for (int k=(i-1)*rx; k<i*rx; ++k)
+					for (int l=(j-1)*ry; l<j*ry; ++l)
+						(*_hu)[k][l] = (*_h)[k][l] * hu[i][j]/h[i][j];
+			if (v_max > v_max_c)
+				for (int k=(i-1)*rx; k<i*rx; ++k)
+					for (int l=(j-1)*ry; l<j*ry; ++l)
+						(*_hv)[k][l] = (*_h)[k][l] * hv[i][j]/h[i][j];
 		}
 	return new SWE_BlockGhost(*_h, *_b, *_hu, *_hv);
 }

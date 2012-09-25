@@ -550,24 +550,24 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 			}
 			break;
 		}
-	} else { // multi layer -> the result is always 2*l_nghosts elements smaller in one direction
+	} else { // multi layer -> the result is always l_nghosts elements smaller in one direction
 		switch (i_edge) {
 		case BND_LEFT:
 		case BND_RIGHT:
 			for (int i=0; i<l_nx; i++)
-				for (int j=l_nghosts; j<l_ny-l_nghosts; j++) {
-					layer->h[i][j] = tmp->h[i][j-l_nghosts];
-					layer->hu[i][j] = tmp->hu[i][j-l_nghosts];
-					layer->hv[i][j] = tmp->hv[i][j-l_nghosts];
+				for (int j=l_nghosts/2; j<l_ny-l_nghosts/2; j++) {
+					layer->h[i][j] = tmp->h[i][j-l_nghosts/2];
+					layer->hu[i][j] = tmp->hu[i][j-l_nghosts/2];
+					layer->hv[i][j] = tmp->hv[i][j-l_nghosts/2];
 				}
 			break;
 		case BND_BOTTOM:
 		case BND_TOP:
-			for (int i=l_nghosts; i<l_nx-l_nghosts; i++)
+			for (int i=l_nghosts/2; i<l_nx-l_nghosts/2; i++)
 				for (int j=0; j<l_ny; j++) {
-					layer->h[i][j] = tmp->h[i-l_nghosts][j];
-					layer->hu[i][j] = tmp->hu[i-l_nghosts][j];
-					layer->hv[i][j] = tmp->hv[i-l_nghosts][j];
+					layer->h[i][j] = tmp->h[i-l_nghosts/2][j];
+					layer->hu[i][j] = tmp->hu[i-l_nghosts/2][j];
+					layer->hv[i][j] = tmp->hv[i-l_nghosts/2][j];
 				}
 			break;
 		}
