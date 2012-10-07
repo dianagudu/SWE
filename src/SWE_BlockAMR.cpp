@@ -439,6 +439,7 @@ void SWE_BlockAMR::timeInterpolateCopyLayer(BoundaryEdge i_edge, float t, float 
 		for (int i = 0; i < copyLayer[i_edge]->nx; ++i)
 			for (int j = 0; j < copyLayer[i_edge]->ny; ++j) {
 				copyLayer[i_edge]->h[i][j] = startCopyLayer[i_edge]->h[i][j] + delta[i_edge]->h[i][j] * t/dt_coarse;
+				copyLayer[i_edge]->b[i][j] = startCopyLayer[i_edge]->b[i][j];
 				copyLayer[i_edge]->hu[i][j] = startCopyLayer[i_edge]->hu[i][j] + delta[i_edge]->h[i][j] * t/dt_coarse;
 				copyLayer[i_edge]->hv[i][j] = startCopyLayer[i_edge]->hv[i][j] + delta[i_edge]->h[i][j] * t/dt_coarse;
 			}
@@ -447,6 +448,7 @@ void SWE_BlockAMR::timeInterpolateCopyLayer(BoundaryEdge i_edge, float t, float 
 			for (int j = 0; j < copyLayer[i_edge]->ny; ++j) {
 				copyLayer[i_edge]->h[i][j] = startCopyLayer[i_edge]->h[i][j]
 						+ (endCopyLayer[i_edge]->h[i][j] - startCopyLayer[i_edge]->h[i][j]) * t / dt_coarse;
+				copyLayer[i_edge]->b[i][j] = startCopyLayer[i_edge]->b[i][j];
 				copyLayer[i_edge]->hu[i][j] = startCopyLayer[i_edge]->hu[i][j]
 						+ (endCopyLayer[i_edge]->hu[i][j] - startCopyLayer[i_edge]->hu[i][j]) * t / dt_coarse;
 				copyLayer[i_edge]->hv[i][j] = startCopyLayer[i_edge]->hv[i][j]
@@ -472,6 +474,7 @@ void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 		case BND_RIGHT:
 			for (int i=1; i<l_ny-1; i++) {
 				copyLayer[i_edge]->h[0][i] = tmp->h[0][i-1];
+				copyLayer[i_edge]->b[0][i] = tmp->b[0][i-1];
 				copyLayer[i_edge]->hu[0][i] = tmp->hu[0][i-1];
 				copyLayer[i_edge]->hv[0][i] = tmp->hv[0][i-1];
 			}
@@ -480,6 +483,7 @@ void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 		case BND_TOP:
 			for (int i=1; i<l_nx-1; i++) {
 				copyLayer[i_edge]->h[i][0] = tmp->h[i-1][0];
+				copyLayer[i_edge]->b[i][0] = tmp->b[i-1][0];
 				copyLayer[i_edge]->hu[i][0] = tmp->hu[i-1][0];
 				copyLayer[i_edge]->hv[i][0] = tmp->hv[i-1][0];
 			}
@@ -490,6 +494,7 @@ void SWE_BlockAMR::setCopyLayerCoarse(BoundaryEdge i_edge) {
 		for (int i=0; i<l_nx; i++)
 			for (int j=0; j<l_ny; j++) {
 				copyLayer[i_edge]->h[i][j] = tmp->h[i][j];
+				copyLayer[i_edge]->b[i][j] = tmp->b[i][j];
 				copyLayer[i_edge]->hu[i][j] = tmp->hu[i][j];
 				copyLayer[i_edge]->hv[i][j] = tmp->hv[i][j];
 			}
@@ -524,6 +529,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 		case BND_LEFT:
 			for (int i=1; i<l_ny-1; i++) {
 				layer->h[0][i] = tmp->h[0][i-1];
+				layer->b[0][i] = tmp->b[0][i-1];
 				layer->hu[0][i] = tmp->hu[0][i-1];
 				layer->hv[0][i] = tmp->hv[0][i-1];
 			}
@@ -531,6 +537,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 		case BND_RIGHT:
 			for (int i=1; i<l_ny-1; i++) {
 				layer->h[0][i] = tmp->h[l_rx-1][i-1];
+				layer->b[0][i] = tmp->b[l_rx-1][i-1];
 				layer->hu[0][i] = tmp->hu[l_rx-1][i-1];
 				layer->hv[0][i] = tmp->hv[l_rx-1][i-1];
 			}
@@ -538,6 +545,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 		case BND_BOTTOM:
 			for (int i=1; i<l_nx-1; i++) {
 				layer->h[i][0] = tmp->h[i-1][0];
+				layer->b[i][0] = tmp->b[i-1][0];
 				layer->hu[i][0] = tmp->hu[i-1][0];
 				layer->hv[i][0] = tmp->hv[i-1][0];
 			}
@@ -545,6 +553,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 		case BND_TOP:
 			for (int i=1; i<l_nx-1; i++) {
 				layer->h[i][0] = tmp->h[i-1][l_ry-1];
+				layer->b[i][0] = tmp->b[i-1][l_ry-1];
 				layer->hu[i][0] = tmp->hu[i-1][l_ry-1];
 				layer->hv[i][0] = tmp->hv[i-1][l_ry-1];
 			}
@@ -557,6 +566,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 			for (int i=0; i<l_nx; i++)
 				for (int j=l_nghosts/2; j<l_ny-l_nghosts/2; j++) {
 					layer->h[i][j] = tmp->h[i][j-l_nghosts/2];
+					layer->b[i][j] = tmp->b[i][j-l_nghosts/2];
 					layer->hu[i][j] = tmp->hu[i][j-l_nghosts/2];
 					layer->hv[i][j] = tmp->hv[i][j-l_nghosts/2];
 				}
@@ -566,6 +576,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 			for (int i=l_nghosts/2; i<l_nx-l_nghosts/2; i++)
 				for (int j=0; j<l_ny; j++) {
 					layer->h[i][j] = tmp->h[i-l_nghosts/2][j];
+					layer->b[i][j] = tmp->b[i-l_nghosts/2][j];
 					layer->hu[i][j] = tmp->hu[i-l_nghosts/2][j];
 					layer->hv[i][j] = tmp->hv[i-l_nghosts/2][j];
 				}
@@ -578,24 +589,25 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
  *
  */
 void SWE_BlockAMR::decreaseComputationalDomain() {
-	if (boundary[BND_LEFT] == CONNECT) nxint_s++;
-	if (boundary[BND_BOTTOM] == CONNECT) nyint_s++;
-	if (boundary[BND_RIGHT] == CONNECT) nxint_e--;
-	if (boundary[BND_TOP] == CONNECT) nyint_e--;
+//	if (neighbourRefinementLevel[BND_LEFT] != 0) nxint_s++;
+//	if (neighbourRefinementLevel[BND_BOTTOM] != 0) nyint_s++;
+//	if (neighbourRefinementLevel[BND_RIGHT] != 0) nxint_e--;
+//	if (neighbourRefinementLevel[BND_TOP] != 0) nyint_e--;
+	if (boundary[BND_LEFT] == CONNECT || boundary[BND_LEFT] == PASSIVE) nxint_s++;
+	if (boundary[BND_BOTTOM] == CONNECT || boundary[BND_BOTTOM] == PASSIVE) nyint_s++;
+	if (boundary[BND_RIGHT] == CONNECT || boundary[BND_RIGHT] == PASSIVE) nxint_e--;
+	if (boundary[BND_TOP] == CONNECT || boundary[BND_TOP] == PASSIVE) nyint_e--;
 }
 
 /**
  *
  */
 void SWE_BlockAMR::resetComputationalDomainMax() {
-	if (nghosts == 1) {
-		nxint_s = nyint_s = 1;
-		nxint_e = nx + 2 * nghosts - 2;
-		nyint_e = ny + 2 * nghosts - 2;
-	} else {
-		nxint_s = nyint_s = nghosts / 2;
-		nxint_e = nx + 3 * nghosts / 2 - 1;
-		nyint_e = ny + 3 * nghosts / 2 - 1;
+	if (nghosts > 1) {
+		if (boundary[BND_LEFT] == CONNECT || boundary[BND_LEFT] == PASSIVE) nxint_s = nghosts / 2;
+		if (boundary[BND_BOTTOM] == CONNECT || boundary[BND_BOTTOM] == PASSIVE) nyint_s = nghosts / 2;
+		if (boundary[BND_RIGHT] == CONNECT || boundary[BND_RIGHT] == PASSIVE) nxint_e = nx + 3 * nghosts / 2 - 1;
+		if (boundary[BND_TOP] == CONNECT || boundary[BND_TOP] == PASSIVE) nyint_e = ny + 3 * nghosts / 2 - 1;
 	}
 }
 
@@ -693,3 +705,78 @@ void SWE_BlockAMR::setGhostLayerEdge(BoundaryEdge i_edge) {
 	synchGhostLayerAfterWrite();
 }
 
+void SWE_BlockAMR::setGhostLayerEdge(BoundaryEdge i_edge, SWE_BlockGhost* i_neighbour) {
+
+#ifdef DBG
+	cout << "Set simple boundary conditions " << endl << flush;
+#endif
+	// call to virtual function to set ghost layer values
+	setBoundaryConditions();
+
+	// for a CONNECT boundary, data will be copied from a neighbouring
+	// SWE_Block (via a SWE_BlockGhost proxy object)
+	// -> these copy operations cannot be executed in GPU/accelerator memory, e.g.
+	//    setBoundaryConditions then has to take care that values are copied.
+
+#ifdef DBG
+	cout << "Set CONNECT boundary conditions in main memory " << endl << flush;
+#endif
+
+	switch (i_edge) {
+	case BND_LEFT:
+		// left boundary
+		if (boundary[BND_LEFT] == CONNECT) {
+			for (int i = 0; i < nghosts; i++) {
+				for (int j = 0; j < ny + 2 * nghosts; j++) {
+					h[i][j] = i_neighbour->h[i][j];
+					hu[i][j] = i_neighbour->hu[i][j];
+					hv[i][j] = i_neighbour->hv[i][j];
+				}
+			}
+		}
+
+	case BND_RIGHT:
+		// right boundary
+		if (boundary[BND_RIGHT] == CONNECT) {
+			for (int i = 0; i < nghosts; i++) {
+
+				for (int j = 0; j < ny + 2 * nghosts; j++) {
+					h[nx + nghosts + i][j] = i_neighbour->h[i][j];
+					hu[nx + nghosts + i][j] = i_neighbour->hu[i][j];
+					hv[nx + nghosts + i][j] = i_neighbour->hv[i][j];
+				}
+			}
+		}
+
+	case BND_BOTTOM:
+		// bottom boundary
+		if (boundary[BND_BOTTOM] == CONNECT) {
+			for (int i = 0; i < nx + 2 * nghosts; i++) {
+				for (int j = 0; j < nghosts; j++) {
+					h[i][j] = i_neighbour->h[i][j];
+					hu[i][j] = i_neighbour->hu[i][j];
+					hv[i][j] = i_neighbour->hv[i][j];
+				}
+			}
+		}
+
+	case BND_TOP:
+		// top boundary
+		if (boundary[BND_TOP] == CONNECT) {
+			for (int i = 0; i < nx + 2 * nghosts; i++) {
+				for (int j = 0; j < nghosts; j++) {
+					h[i][ny + nghosts + j] = i_neighbour->h[i][j];
+					hu[i][ny + nghosts + j] = i_neighbour->hu[i][j];
+					hv[i][ny + nghosts + j] = i_neighbour->hv[i][j];
+				}
+			}
+		}
+	}
+
+#ifdef DBG
+	cout << "Synchronize ghost layers (for heterogeneous memory) " << endl << flush;
+#endif
+	// synchronize the ghost layers (for PASSIVE and CONNECT conditions)
+	// with accelerator memory
+	synchGhostLayerAfterWrite();
+}

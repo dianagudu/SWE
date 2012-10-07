@@ -51,10 +51,12 @@ SWE_BlockGhost* SWE_BlockGhost::coarsen(int rx, int ry) {
 			for (int k=i*rx; k<(i+1)*rx; ++k)
 				for (int l=j*ry; l<(j+1)*ry; ++l) {
 					(*_h)[i][j] += h[k][l];
+					(*_b)[i][j] += b[k][l];
 					(*_hu)[i][j] += hu[k][l];
 					(*_hv)[i][j] += hv[k][l];
 				}
 			(*_h)[i][j]  /= rx*ry;
+			(*_b)[i][j]  /= rx*ry;
 			(*_hu)[i][j] /= rx*ry;
 			(*_hv)[i][j] /= rx*ry;
 		}
@@ -193,6 +195,7 @@ SWE_BlockGhost* SWE_BlockGhost::refine_constant(int rx, int ry) {
 			for (int k=(i-1)*rx; k<i*rx; ++k)
 				for (int l=(j-1)*ry; l<j*ry; ++l) {
 					(*_h)[k][l] = h[i][j];
+					(*_b)[k][l] = b[i][j];
 					(*_hu)[k][l] = hu[i][j];
 					(*_hv)[k][l] = hv[i][j];
 				}

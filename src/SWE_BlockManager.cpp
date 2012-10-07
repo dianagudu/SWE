@@ -251,6 +251,12 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 		l_t += l_dt;
 		l_num_ts++;
 
+		/**
+		 * TODO:
+		 * for space interpolation, update the unknowns after calling simulate_level recursively on the next levels of refinement
+		 * Reason: the time-step might change (become smaller) after the call, as there might not be enough ghost layers on the fine grids
+		 */
+
 		// for all blocks on this refinement level, decrease the computational domain (except for the coarsest grids)
 		// stop if the number of time-steps is greater than the refinement level (number of valid ghost cells)
 		if (i_level != blocks.top()->getRefinementLevel() && interpolationScheme == SPACE) {

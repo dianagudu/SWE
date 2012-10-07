@@ -108,6 +108,7 @@ if env['parallelization'] in ['none', 'cuda']:
 elif env['parallelization'] in ['mpi_with_cuda', 'mpi']:
   if env['adaptive'] == True:
     sourceFiles.append( ['examples/swe_mpiAMR.cpp'] )
+    sourceFiles.append( ['examples/swe_mpiHelper.cpp'] )
   else:
     sourceFiles.append( ['examples/swe_mpi.cpp'] )
 else:

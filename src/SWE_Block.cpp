@@ -577,7 +577,7 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_LEFT]) {
     case WALL:
     {
-      for(int j=nghosts; j<ny+nghosts; j++) {
+      for(int j=0; j<ny+2*nghosts; j++) {
         h[nghosts-1][j] = h[nghosts][j];
         hu[nghosts-1][j] = -hu[nghosts][j];
         hv[nghosts-1][j] = hv[nghosts][j];
@@ -586,7 +586,7 @@ void SWE_Block::setBoundaryConditions() {
     }
     case OUTFLOW:
     {
-      for(int j=nghosts; j<ny+nghosts; j++) {
+      for(int j=0; j<ny+2*nghosts; j++) {
         h[nghosts-1][j] = h[nghosts][j];
         hu[nghosts-1][j] = hu[nghosts][j];
         hv[nghosts-1][j] = hv[nghosts][j];
@@ -605,7 +605,7 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_RIGHT]) {
     case WALL:
     {
-      for(int j=nghosts; j<ny+nghosts; j++) {
+      for(int j=0; j<ny+2*nghosts; j++) {
         h[nx+nghosts][j] = h[nx+nghosts-1][j];
         hu[nx+nghosts][j] = -hu[nx+nghosts-1][j];
         hv[nx+nghosts][j] = hv[nx+nghosts-1][j];
@@ -614,7 +614,7 @@ void SWE_Block::setBoundaryConditions() {
     }
     case OUTFLOW:
     {
-      for(int j=nghosts; j<ny+nghosts; j++) {
+      for(int j=0; j<ny+2*nghosts; j++) {
         h[nx+nghosts][j] = h[nx+nghosts-1][j];
         hu[nx+nghosts][j] = hu[nx+nghosts-1][j];
         hv[nx+nghosts][j] = hv[nx+nghosts-1][j];
@@ -633,7 +633,7 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_BOTTOM]) {
     case WALL:
     {
-      for(int i=nghosts; i<nx+nghosts; i++) {
+      for(int i=0; i<nx+2*nghosts; i++) {
         h[i][nghosts-1] = h[i][nghosts];
         hu[i][nghosts-1] = hu[i][nghosts];
         hv[i][nghosts-1] = -hv[i][nghosts];
@@ -642,7 +642,7 @@ void SWE_Block::setBoundaryConditions() {
     }
     case OUTFLOW:
     {
-      for(int i=nghosts; i<nx+nghosts; i++) {
+      for(int i=0; i<nx+2*nghosts; i++) {
         h[i][nghosts-1] = h[i][nghosts];
         hu[i][nghosts-1] = hu[i][nghosts];
         hv[i][nghosts-1] = hv[i][nghosts];
@@ -661,7 +661,7 @@ void SWE_Block::setBoundaryConditions() {
   switch(boundary[BND_TOP]) {
     case WALL:
     {
-      for(int i=nghosts; i<nx+nghosts; i++) {
+      for(int i=0; i<nx+2*nghosts; i++) {
         h[i][ny+nghosts] = h[i][ny+nghosts-1];
         hu[i][ny+nghosts] = hu[i][ny+nghosts-1];
         hv[i][ny+nghosts] = -hv[i][ny+nghosts-1];
@@ -670,7 +670,7 @@ void SWE_Block::setBoundaryConditions() {
     }
     case OUTFLOW:
     {
-      for(int i=nghosts; i<nx+nghosts; i++) {
+      for(int i=0; i<nx+2*nghosts; i++) {
         h[i][ny+nghosts] = h[i][ny+nghosts-1];
         hu[i][ny+nghosts] = hu[i][ny+nghosts-1];
         hv[i][ny+nghosts] = hv[i][ny+nghosts-1];

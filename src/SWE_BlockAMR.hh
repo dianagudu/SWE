@@ -113,6 +113,14 @@ class SWE_BlockAMR : public SWE_Block {
     void setGhostLayerEdge(BoundaryEdge edge);
 
     /**
+     * Updates the values in the ghost layer of a given edge
+     *
+     * @param i_edge one of the four boundary edges of the block
+     * @param i_neighbour the values to be set in the ghost layer
+     */
+    void setGhostLayerEdge(BoundaryEdge i_edge, SWE_BlockGhost* i_neighbour);
+
+    /**
      * Sets the refinement level of neighbouring block
      * at a given boundary edge
      *
@@ -174,7 +182,9 @@ class SWE_BlockAMR : public SWE_Block {
 
     /** scenario */
     SWE_Scenario* scene;
-    /** type of time-stepping used - determines the number of ghost layers */
+    /** type of interpolation used for the ghost layers
+     * -> determines the number of ghost layers
+     * */
     InterpolationType interpolationStrategy;
 };
 

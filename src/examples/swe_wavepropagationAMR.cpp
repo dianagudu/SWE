@@ -185,7 +185,7 @@ int main( int argc, char** argv ) {
 #endif
 #endif
   //! number of checkpoints for visualization (at each checkpoint in time, an output file is written).
-  int l_numberOfCheckPoints = 40;
+  int l_numberOfCheckPoints = 20;
 
   //! size of a single cell in x- and y-direction
   float l_dX, l_dY;
@@ -224,11 +224,6 @@ int main( int argc, char** argv ) {
         l_wavePropagationBlock[i][j]->initScenario(l_scenario, true);
      };
   };
-
-  cout<<l_scenario.getBoundaryType(BND_BOTTOM)<<endl;
-  cout<<l_scenario.getBoundaryType(BND_TOP)<<endl;
-  cout<<l_scenario.getBoundaryType(BND_LEFT)<<endl;
-  cout<<l_scenario.getBoundaryType(BND_RIGHT)<<endl;
 
   // set boundaries
   for (i=0; i<l_blockX; i++) {
@@ -355,11 +350,14 @@ int main( int argc, char** argv ) {
 
 #ifdef BENCHMARKING
   // init benchmarking data receiver
-  // name: bench_<l_blockX>x<l_blockY>_<l_nX>x<l_nY>/single_wave_on_simple_beach_<l_timeSteppingStrategy>_<l_interpolationScheme>
+  // name: bench_<l_blockX>x<l_blockY>_<l_nX>x<l_nY>_<refinement_levels>/single_wave_on_simple_beach_<l_timeSteppingStrategy>_<l_interpolationScheme>
   std::ostringstream oss;
   oss << "bench_" << l_blockX << "x" << l_blockY << "_"
-	  << l_nX << "x" << l_nY << "/single_wave_on_simple_beach_"
-	  << l_timeSteppingStrategy << "_" << l_interpolationScheme;
+	  << l_nX << "x" << l_nY << "_";
+  for (int j=l_blockY-1; j>=0; --j)
+	  for (int i=0; i<l_blockX; ++i)
+		  oss << l_rxy[i][j];
+  oss << "/single_wave_on_simple_beach_" << l_timeSteppingStrategy << "_" << l_interpolationScheme;
   mgr.initBenchmarkingDataReceiver(oss.str());
 
   /* add times and positions to collect benchmarking data

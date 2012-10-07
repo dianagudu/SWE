@@ -59,37 +59,7 @@ static tools::Logger s_sweLogger;
 #include "../benchmarking/BenchmarkingDataReceiver.hpp"
 #endif
 
-#include "../SWE_BlockManager.hh"
-
-// Exchanges the left and right ghost layers.
-void exchangeLeftRightGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
-								  const float i_t,
-								  const int i_leftNeighborRank,
-						  		  SWE_BlockGhost* o_leftInflow,
-								  SWE_BlockGhost* i_leftOutflow,
-								  const int i_leftNeighbourRefinementLevel,
-								  const int i_rightNeighborRank,
-								  SWE_BlockGhost* o_rightInflow,
-								  SWE_BlockGhost* i_rightOutflow,
-								  const int i_rightNeighbourRefinementLevel,
-								  const int i_refinementLevel,
-								  const MPI_Datatype i_mpiCols,
-								  MPI_Datatype i_mpiSendType[4]);
-
-// Exchanges the bottom and top ghost layers.
-void exchangeBottomTopGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
-								  const float i_t,
-								  const int i_bottomNeighborRank,
-								  SWE_BlockGhost* o_bottomNeighborInflow,
-								  SWE_BlockGhost* i_bottomNeighborOutflow,
-								  const int i_bottomNeighbourRefinementLevel,
-								  const int i_topNeighborRank,
-								  SWE_BlockGhost* o_topNeighborInflow,
-								  SWE_BlockGhost* i_topNeighborOutflow,
-								  const int i_topNeighbourRefinementLevel,
-								  const int i_refinementLevel,
-								  const MPI_Datatype i_mpiRows,
-								  MPI_Datatype i_mpiSendType[4]);
+#include "swe_mpiHelper.hh"
 
 /**
  * Main program for the simulation on a single SWE_WavePropagationBlockAMR.
@@ -243,7 +213,7 @@ int main(int argc, char** argv) {
 //	SWE_SingleWaveOnSimpleBeach l_scenario;
 #endif
 	//! number of checkpoints for visualization (at each checkpoint in time, an output file is written).
-	int l_numberOfCheckPoints = 40;
+	int l_numberOfCheckPoints = 20;
 
 	//! refinement level in x- and y-direction
 	float l_rX, l_rY;
@@ -381,6 +351,8 @@ int main(int argc, char** argv) {
 	 * Solution: either create different datatypes types for each boundary, depending on the
 	 * implementation of the copy layer, or allocate the copy layer even in the first case (same resolution blocks)
 	 * The first option is implemented below.
+	 * (TODO) Note: these types, as well as the ones above, have to be destroyed and created again
+	 * if the resolution of a block changes during the program execution
 	 */
 	MPI_Datatype l_mpiSendType[4];
 	// left boundary type
@@ -443,14 +415,14 @@ int main(int argc, char** argv) {
 	}
 
 	// intially exchange ghost and copy layers
-	exchangeLeftRightGhostLayers( &l_wavePropagationBlock, 0.0,
-								  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow, l_leftNeighbourRefinementLevel,
-								  l_rightNeighborRank, l_rightInflow, l_rightOutflow,l_rightNeighbourRefinementLevel,
-								  l_rX, l_mpiCols, l_mpiSendType );
-	exchangeBottomTopGhostLayers( &l_wavePropagationBlock, 0.0,
-			  	  	  	  	  	  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
-								  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
-								  l_rX, l_mpiRows, l_mpiSendType );
+//	exchangeLeftRightGhostLayers( &l_wavePropagationBlock, 0.0, 0.0, l_timeSteppingStrategy,
+//								  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow, l_leftNeighbourRefinementLevel,
+//								  l_rightNeighborRank, l_rightInflow, l_rightOutflow,l_rightNeighbourRefinementLevel,
+//								  l_rX, l_mpiCols, l_mpiSendType );
+//	exchangeBottomTopGhostLayers( &l_wavePropagationBlock, 0.0, 0.0, l_timeSteppingStrategy,
+//			  	  	  	  	  	  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
+//								  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
+//								  l_rX, l_mpiRows, l_mpiSendType );
 	// set values in ghost cells
 	l_wavePropagationBlock.setGhostLayer();
 
@@ -497,6 +469,19 @@ int main(int argc, char** argv) {
 	s_sweLogger.printStartMessage();
 	s_sweLogger.initWallClockTime(time(NULL));
 
+	//! if local time-stepping is used, create an MPI group for each refinement level
+	MPI_Comm l_refinementLevelComm;
+	if (l_timeSteppingStrategy == LTS) {
+		MPI_Comm_split( MPI_COMM_WORLD, l_rX, l_mpiRank, &l_refinementLevelComm );
+		/**
+		 * TODO: how to destroy a communicator:
+		 * MPI_Comm_free( &l_refinementLevelComm );
+		 * if (l_refinementLevelComm != MPI_COMM_NULL) {
+		 * 	 printf( "Freed comm was not set to COMM_NULL\n" );
+		 * }
+		 */
+	}
+
 	//! simulation time.
 	float l_t = 0.0;
 
@@ -505,47 +490,152 @@ int main(int argc, char** argv) {
 		// reset the cpu clock
 		s_sweLogger.resetCpuClockToCurrentTime();
 
-		// do time steps until next checkpoint is reached
-		while( l_t < l_checkPoints[c] ) {
-			// exchange ghost and copy layers
+		if (l_timeSteppingStrategy == GTS) { // global time-stepping
 
-			// left - right direction
-			exchangeLeftRightGhostLayers( &l_wavePropagationBlock, l_t,
-					  	  	  	  	  	  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow,	l_leftNeighbourRefinementLevel,
-										  l_rightNeighborRank, l_rightInflow, l_rightOutflow,	l_rightNeighbourRefinementLevel,
-										  l_rX, l_mpiCols, l_mpiSendType );
-			// bottom - top direction
-			exchangeBottomTopGhostLayers( &l_wavePropagationBlock, l_t,
-					  	  	  	  	  	  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
-										  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
-										  l_rX, l_mpiRows, l_mpiSendType );
+			// do time steps until next checkpoint is reached
+			while( l_t < l_checkPoints[c] ) {
+				// exchange ghost and copy layers
 
-			// reset the cpu clock
-			l_sweLogger.resetCpuClockToCurrentTime();
+				// left - right direction
+				exchangeLeftRightGhostLayers( &l_wavePropagationBlock, l_t, l_t, l_timeSteppingStrategy,
+											  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow,	l_leftNeighbourRefinementLevel,
+											  l_rightNeighborRank, l_rightInflow, l_rightOutflow,	l_rightNeighbourRefinementLevel,
+											  l_rX, l_mpiCols, l_mpiSendType );
+				// bottom - top direction
+				exchangeBottomTopGhostLayers( &l_wavePropagationBlock, l_t, l_t, l_timeSteppingStrategy,
+											  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
+											  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
+											  l_rX, l_mpiRows, l_mpiSendType );
 
-			// set values in ghost cells
-			l_wavePropagationBlock.setGhostLayer();
+				// reset the cpu clock
+				l_sweLogger.resetCpuClockToCurrentTime();
 
-			// compute numerical flux on each edge
-			l_wavePropagationBlock.computeNumericalFluxes();
+				// set values in ghost cells
+				l_wavePropagationBlock.setGhostLayer();
 
-			//! maximum allowed time step width within a block.
-			float l_maxTimeStepWidth = l_wavePropagationBlock.getMaxTimestep();
+				// compute numerical flux on each edge
+				l_wavePropagationBlock.computeNumericalFluxes();
 
-			//! maximum allowed time steps of all blocks
-			float l_maxTimeStepWidthGlobal;
+				//! maximum allowed time step width within a block.
+				float l_maxTimeStepWidth = l_wavePropagationBlock.getMaxTimestep();
 
-			// determine smallest time step of all blocks
-			MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
+				//! maximum allowed time steps of all blocks
+				float l_maxTimeStepWidthGlobal;
 
-			// update the cell values
-			l_wavePropagationBlock.updateUnknowns(l_maxTimeStepWidthGlobal);
+				// determine smallest time step of all blocks
+				MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
 
-			// update simulation time with time step width.
-			l_t += l_maxTimeStepWidthGlobal;
+				// update the cell values
+				l_wavePropagationBlock.updateUnknowns(l_maxTimeStepWidthGlobal);
 
+				// update simulation time with time step width.
+				l_t += l_maxTimeStepWidthGlobal;
+			}
 			// print the current simulation time
-			l_sweLogger.printSimulationTime(l_t);
+			//l_sweLogger.printSimulationTime(l_t);
+		} else { // local time-stepping
+			if (l_interpolationScheme == SPACE) {
+				// do time steps until next checkpoint is reached
+				while( l_t < l_checkPoints[c] ) {
+
+					// exchange ghost and copy layers
+					// left - right direction
+					exchangeLeftRightGhostLayers( &l_wavePropagationBlock, l_t, l_t, l_timeSteppingStrategy,
+												  l_leftNeighborRank,  l_leftInflow,  l_leftOutflow,	l_leftNeighbourRefinementLevel,
+												  l_rightNeighborRank, l_rightInflow, l_rightOutflow,	l_rightNeighbourRefinementLevel,
+												  l_rX, l_mpiCols, l_mpiSendType );
+					// bottom - top direction
+					exchangeBottomTopGhostLayers( &l_wavePropagationBlock, l_t, l_t, l_timeSteppingStrategy,
+												  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow,l_bottomNeighbourRefinementLevel,
+												  l_topNeighborRank,    l_topInflow,    l_topOutflow,	l_topNeighbourRefinementLevel,
+												  l_rX, l_mpiRows, l_mpiSendType );
+
+					// reset the cpu clock
+					l_sweLogger.resetCpuClockToCurrentTime();
+
+					// set values in ghost cells
+					l_wavePropagationBlock.setGhostLayer();
+
+					// reset computational domain to include all but one ghost layers
+					l_wavePropagationBlock.resetComputationalDomainMax();
+
+					// number of time-steps performed
+					int l_numTs = 0;
+
+					// time at the beginning of coarse time-stepping
+					float l_tStart = l_t;
+
+					// do time-stepping until all ghost layers become invalid
+					while (l_numTs < l_rX) {
+						// set values in ghost cells
+						l_wavePropagationBlock.setGhostLayer();
+
+						// compute numerical flux on each edge
+						l_wavePropagationBlock.computeNumericalFluxes();
+
+						//! maximum allowed time step width within a block.
+						float l_maxTimeStepWidth = l_wavePropagationBlock.getMaxTimestep();
+
+						//! maximum allowed time steps of all blocks on a refinement level
+						float l_maxTimeStepWidthGlobal = 0.1/l_rX; //XXX
+
+//						// If the number of time-steps l_numTs reached the maximum allowed value (l_rX),
+//						// perform MPI_Allreduce to get the time-step width needed for the blocks to reach the same time l_t
+//						// Otherwise, reduce the time-step width only on the blocks with the same refinement level
+//						if (l_numTs == l_rX - 1) {
+//							// maximum allowed total time-step since the last ghost cell exchange
+//							l_maxTimeStepWidth = l_t + l_maxTimeStepWidth - l_tStart;
+//
+//							// determine smallest time step of all blocks
+//							MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
+//
+//							// get the value of the time-step needed to update the unknowns
+//							l_maxTimeStepWidthGlobal -= (l_t - l_tStart);
+//						} else {
+//							// determine smallest time step of all blocks on a refinement level
+//							MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, l_refinementLevelComm);
+//							// simpler approach: no reduce on refinement levels
+//							// l_maxTimeStepWidthGlobal = l_maxTimeStepWidth;
+//						}
+//
+//						if (l_maxTimeStepWidthGlobal < 0)
+//							cout<<"!!!!!!! negative l_maxTimeStepWidthGlobal: "<<l_maxTimeStepWidthGlobal<<endl;
+
+						// update the cell values
+						l_wavePropagationBlock.updateUnknowns(l_maxTimeStepWidthGlobal);
+
+//						// update simulation time with time step width.
+//						l_t += l_maxTimeStepWidthGlobal;
+
+						// decrease the computational domain
+						l_wavePropagationBlock.decreaseComputationalDomain();
+
+						// increase number of time-steps executed since the last ghost cell exchange
+						l_numTs++;
+					}
+
+					l_t += 0.12; // XXX
+
+					// print the current simulation time
+					// l_sweLogger.printSimulationTime(l_t);
+				}
+			} else { // l_interpolationScheme is APPROX_TIME_SPACE or TIME_SPACE
+				// do time steps until next checkpoint is reached
+				// use fixed time-steps for now
+				while( l_t < l_checkPoints[c] ) {
+					// reset the cpu clock
+					l_sweLogger.resetCpuClockToCurrentTime();
+					// simulate one coarse time-step
+					l_t += simulateLTSTimeSpace(&l_wavePropagationBlock, l_t, l_checkPoints[c],
+							  l_leftNeighborRank, l_leftInflow, l_leftOutflow, l_leftNeighbourRefinementLevel,
+							  l_rightNeighborRank, l_rightInflow, l_rightOutflow, l_rightNeighbourRefinementLevel,
+							  l_bottomNeighborRank, l_bottomInflow, l_bottomOutflow, l_bottomNeighbourRefinementLevel,
+							  l_topNeighborRank, l_topInflow, l_topOutflow, l_topNeighbourRefinementLevel,
+							  l_rX, l_mpiCols, l_mpiRows, l_mpiSendType, l_refinementLevelComm);
+				}
+				// print the current simulation time
+				l_sweLogger.printSimulationTime(l_t);
+			}
 		}
 
 		// update the cpu time in the logger
@@ -591,152 +681,4 @@ int main(int argc, char** argv) {
 	MPI_Finalize();
 
 	return 0;
-}
-
-/**
- * The updated ghost layers are needed to refine a copy layer
- * Therefore, the coarser grids first have to receive the ghost layers,
- * update (refine) the copy layers and then send them to the finer grids.
- * The finer grids first update (coarsen) the copy layers, send them to the
- * coarser grids and then receive the ghost layers.
- * This scheme is implemented with blocking operations: MPI_Send, MPI_Recv
- */
-
-/**
- * Exchanges the left and right ghost layers with MPI's SendReceive.
- *
- * @param i_leftNeighborRank MPI rank of the  left neighbor.
- * @param o_leftInflow ghost layer, where the left neighbor writes into.
- * @param i_leftOutflow layer where the left neighbor reads from.
- * @param i_rightNeighborRank MPI rank of the right neighbor.
- * @param o_rightInflow ghost layer, where the right neighbor writes into.
- * @param i_rightOutflow layer, where the right neighbor reads form.
- * @param i_mpiCol MPI data type for the vertical gost layers.
- */
-void exchangeLeftRightGhostLayers( SWE_WavePropagationAMR* i_wavePropagationBlock, const float i_t,
-								   const int i_leftNeighborRank,  SWE_BlockGhost* o_leftInflow,  SWE_BlockGhost* i_leftOutflow, const int i_leftNeighbourRefinementLevel,
-                                   const int i_rightNeighborRank, SWE_BlockGhost* o_rightInflow, SWE_BlockGhost* i_rightOutflow, const int i_rightNeighbourRefinementLevel,
-                                   const int i_refinementLevel, const MPI_Datatype i_mpiCols,  MPI_Datatype i_mpiSendType[4]) {
-  MPI_Status l_status;
-
-  // if left neighbour is coarser, send and then receive
-  if (i_leftNeighbourRefinementLevel < i_refinementLevel) {
-	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_LEFT, i_t, i_t);
-
-	MPI_Send( i_leftOutflow->h.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  1, MPI_COMM_WORLD );
-	MPI_Send( i_leftOutflow->hu.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  2, MPI_COMM_WORLD );
-	MPI_Send( i_leftOutflow->hv.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  3, MPI_COMM_WORLD );
-
-	MPI_Recv( o_leftInflow->h.elemVector(),		1, i_mpiCols,	i_leftNeighborRank,  4, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_leftInflow->hu.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  5, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_leftInflow->hv.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  6, MPI_COMM_WORLD, &l_status );
-  }
-  // if right neighbour is finer, receive and then send
-  if (i_rightNeighbourRefinementLevel > i_refinementLevel) {
- 	MPI_Recv( o_rightInflow->h.elemVector(), 	1,	i_mpiCols,	i_rightNeighborRank, 1, MPI_COMM_WORLD, &l_status );
- 	MPI_Recv( o_rightInflow->hu.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 2, MPI_COMM_WORLD, &l_status );
- 	MPI_Recv( o_rightInflow->hv.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 3, MPI_COMM_WORLD, &l_status );
-
- 	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_RIGHT, i_t, i_t);
-
- 	MPI_Send( i_rightOutflow->h.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 4, MPI_COMM_WORLD );
- 	MPI_Send( i_rightOutflow->hu.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 5, MPI_COMM_WORLD );
- 	MPI_Send( i_rightOutflow->hv.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 6, MPI_COMM_WORLD );
-  }
-
-  // if right neighbour is coarser, send and then receive
-  if (i_rightNeighbourRefinementLevel <= i_refinementLevel) {
-	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_RIGHT, i_t, i_t);
-	MPI_Send( i_rightOutflow->h.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 4, MPI_COMM_WORLD );
-	MPI_Send( i_rightOutflow->hu.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 5, MPI_COMM_WORLD );
-	MPI_Send( i_rightOutflow->hv.elemVector(),	1, i_mpiSendType[BND_RIGHT],	i_rightNeighborRank, 6, MPI_COMM_WORLD );
-
-	MPI_Recv( o_rightInflow->h.elemVector(), 	1,	i_mpiCols,	i_rightNeighborRank, 1, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_rightInflow->hu.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 2, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_rightInflow->hv.elemVector(),	1,	i_mpiCols, 	i_rightNeighborRank, 3, MPI_COMM_WORLD, &l_status );
-  }
-
-  // if left neighbour is finer, receive and then send
-  if (i_leftNeighbourRefinementLevel >= i_refinementLevel) {
-  	MPI_Recv( o_leftInflow->h.elemVector(),		1, i_mpiCols,	i_leftNeighborRank,  4, MPI_COMM_WORLD, &l_status );
-  	MPI_Recv( o_leftInflow->hu.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  5, MPI_COMM_WORLD, &l_status );
-  	MPI_Recv( o_leftInflow->hv.elemVector(),	1, i_mpiCols, 	i_leftNeighborRank,  6, MPI_COMM_WORLD, &l_status );
-
-  	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_LEFT, i_t, i_t);
-
-  	MPI_Send( i_leftOutflow->h.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  1, MPI_COMM_WORLD );
-  	MPI_Send( i_leftOutflow->hu.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  2, MPI_COMM_WORLD );
-  	MPI_Send( i_leftOutflow->hv.elemVector(),	1,	i_mpiSendType[BND_LEFT],	i_leftNeighborRank,  3, MPI_COMM_WORLD );
-  }
-}
-
-/**
- * Exchanges the bottom and top ghost layers with MPI blocking routines Send and Recv.
- *
- * @param i_bottomNeighborRank MPI rank of the bottom neighbor.
- * @param o_bottomNeighborInflow ghost layer, where the bottom neighbor writes into.
- * @param i_bottomNeighborOutflow host layer, where the bottom neighbor reads from.
- * @param i_topNeighborRank MPI rank of the top neighbor.
- * @param o_topNeighborInflow ghost layer, where the top neighbor writes into.
- * @param i_topNeighborOutflow ghost layer, where the top neighbor reads from.
- * @param i_mpiRow MPI data type for the horizontal ghost layers.
- */
-void exchangeBottomTopGhostLayers( SWE_WavePropagationAMR* i_wavePropagationBlock, const float i_t,
-		  	  	  	  	  	  	   const int i_bottomNeighborRank, SWE_BlockGhost* o_bottomNeighborInflow, SWE_BlockGhost* i_bottomNeighborOutflow, const int i_bottomNeighbourRefinementLevel,
-                                   const int i_topNeighborRank,    SWE_BlockGhost* o_topNeighborInflow,    SWE_BlockGhost* i_topNeighborOutflow, const int i_topNeighbourRefinementLevel,
-                                   const int i_refinementLevel, const MPI_Datatype i_mpiRows,   MPI_Datatype i_mpiSendType[4]) {
-  MPI_Status l_status;
-
-  // if bottom neighbour is coarser, send and then receive
-  if (i_bottomNeighbourRefinementLevel <= i_refinementLevel) {
-	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_BOTTOM, i_t, i_t);
-
-	MPI_Send( i_bottomNeighborOutflow->h.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	11, MPI_COMM_WORLD);
-	MPI_Send( i_bottomNeighborOutflow->hv.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	13, MPI_COMM_WORLD );
-	MPI_Send( i_bottomNeighborOutflow->hu.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank,	12, MPI_COMM_WORLD );
-
-	MPI_Recv( o_bottomNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	14, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_bottomNeighborInflow->hu.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	15, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_bottomNeighborInflow->hv.elemVector(),	1, i_mpiRows, 	i_bottomNeighborRank,	16, MPI_COMM_WORLD, &l_status );
-  }
-
-  // if top neighbour is finer, receive and then send
-  if (i_topNeighbourRefinementLevel > i_refinementLevel) {
-	MPI_Recv( o_topNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	11, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_topNeighborInflow->hu.elemVector(),	1, i_mpiRows, 	i_topNeighborRank,	12, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_topNeighborInflow->hv.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	13, MPI_COMM_WORLD, &l_status );
-
-	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_TOP, i_t, i_t);
-
-	MPI_Send( i_topNeighborOutflow->h.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	14, MPI_COMM_WORLD );
-	MPI_Send( i_topNeighborOutflow->hu.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	15, MPI_COMM_WORLD );
-	MPI_Send( i_topNeighborOutflow->hv.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	16, MPI_COMM_WORLD );
-  }
-
-  // if top neighbour is coarser, send and then receive
-  if (i_topNeighbourRefinementLevel <= i_refinementLevel) {
-	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_TOP, i_t, i_t);
-
-	MPI_Send( i_topNeighborOutflow->h.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	14, MPI_COMM_WORLD );
-	MPI_Send( i_topNeighborOutflow->hu.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	15, MPI_COMM_WORLD );
-	MPI_Send( i_topNeighborOutflow->hv.elemVector(), 	1, i_mpiSendType[BND_TOP],	i_topNeighborRank,	16, MPI_COMM_WORLD );
-
-	MPI_Recv( o_topNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	11, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_topNeighborInflow->hu.elemVector(),	1, i_mpiRows, 	i_topNeighborRank,	12, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_topNeighborInflow->hv.elemVector(),	1, i_mpiRows,	i_topNeighborRank,	13, MPI_COMM_WORLD, &l_status );
-  }
-
-  // if bottom neighbour is finer, receive and then send
-  if (i_bottomNeighbourRefinementLevel > i_refinementLevel) {
-	MPI_Recv( o_bottomNeighborInflow->h.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	14, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_bottomNeighborInflow->hu.elemVector(),	1, i_mpiRows,	i_bottomNeighborRank,	15, MPI_COMM_WORLD, &l_status );
-	MPI_Recv( o_bottomNeighborInflow->hv.elemVector(),	1, i_mpiRows, 	i_bottomNeighborRank,	16, MPI_COMM_WORLD, &l_status );
-
-	i_wavePropagationBlock->synchCopyLayerBeforeRead(GTS, BND_BOTTOM, i_t, i_t);
-
-	MPI_Send( i_bottomNeighborOutflow->h.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	11, MPI_COMM_WORLD );
-	MPI_Send( i_bottomNeighborOutflow->hv.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank, 	13, MPI_COMM_WORLD );
-	MPI_Send( i_bottomNeighborOutflow->hu.elemVector(),	1, i_mpiSendType[BND_BOTTOM],	i_bottomNeighborRank,	12, MPI_COMM_WORLD );
-  }
-
 }

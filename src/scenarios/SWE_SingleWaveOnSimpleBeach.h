@@ -26,11 +26,7 @@ class SWE_SingleWaveOnSimpleBeach : public SWE_Scenario {
 	}
 
     BoundaryType getBoundaryType(BoundaryEdge edge) {
-    	switch (edge) {
-		case BND_LEFT: case BND_RIGHT: return OUTFLOW;
-		case BND_BOTTOM: case BND_TOP: return WALL;
-		default: return OUTFLOW;
-		}
+    	return OUTFLOW;
     }
 
     float getBoundaryPos(BoundaryEdge edge) {
