@@ -562,8 +562,14 @@ int main(int argc, char** argv) {
 					// number of time-steps performed
 					int l_numTs = 0;
 
-					// time at the beginning of coarse time-stepping
-					float l_tStart = l_t;
+					//! maximum allowed time step width within a block multiplied by the refinement level
+					float l_maxTimeStepWidth = l_wavePropagationBlock.getMaxTimestep() * l_rX;
+
+					//! maximum allowed time steps of all blocks on a refinement level
+					float l_maxTimeStepWidthGlobal;
+
+					// determine smallest time step of all blocks
+					MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
 
 					// do time-stepping until all ghost layers become invalid
 					while (l_numTs < l_rX) {
@@ -573,39 +579,8 @@ int main(int argc, char** argv) {
 						// compute numerical flux on each edge
 						l_wavePropagationBlock.computeNumericalFluxes();
 
-						//! maximum allowed time step width within a block.
-						float l_maxTimeStepWidth = l_wavePropagationBlock.getMaxTimestep();
-
-						//! maximum allowed time steps of all blocks on a refinement level
-						float l_maxTimeStepWidthGlobal = 0.1/l_rX; //XXX
-
-//						// If the number of time-steps l_numTs reached the maximum allowed value (l_rX),
-//						// perform MPI_Allreduce to get the time-step width needed for the blocks to reach the same time l_t
-//						// Otherwise, reduce the time-step width only on the blocks with the same refinement level
-//						if (l_numTs == l_rX - 1) {
-//							// maximum allowed total time-step since the last ghost cell exchange
-//							l_maxTimeStepWidth = l_t + l_maxTimeStepWidth - l_tStart;
-//
-//							// determine smallest time step of all blocks
-//							MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
-//
-//							// get the value of the time-step needed to update the unknowns
-//							l_maxTimeStepWidthGlobal -= (l_t - l_tStart);
-//						} else {
-//							// determine smallest time step of all blocks on a refinement level
-//							MPI_Allreduce(&l_maxTimeStepWidth, &l_maxTimeStepWidthGlobal, 1, MPI_FLOAT, MPI_MIN, l_refinementLevelComm);
-//							// simpler approach: no reduce on refinement levels
-//							// l_maxTimeStepWidthGlobal = l_maxTimeStepWidth;
-//						}
-//
-//						if (l_maxTimeStepWidthGlobal < 0)
-//							cout<<"!!!!!!! negative l_maxTimeStepWidthGlobal: "<<l_maxTimeStepWidthGlobal<<endl;
-
 						// update the cell values
-						l_wavePropagationBlock.updateUnknowns(l_maxTimeStepWidthGlobal);
-
-//						// update simulation time with time step width.
-//						l_t += l_maxTimeStepWidthGlobal;
+						l_wavePropagationBlock.updateUnknowns(l_maxTimeStepWidthGlobal/l_rX);
 
 						// decrease the computational domain
 						l_wavePropagationBlock.decreaseComputationalDomain();
@@ -614,10 +589,8 @@ int main(int argc, char** argv) {
 						l_numTs++;
 					}
 
-					l_t += 0.12; // XXX
-
-					// print the current simulation time
-					// l_sweLogger.printSimulationTime(l_t);
+					// update simulation time
+					l_t += l_maxTimeStepWidthGlobal;
 				}
 			} else { // l_interpolationScheme is APPROX_TIME_SPACE or TIME_SPACE
 				// do time steps until next checkpoint is reached

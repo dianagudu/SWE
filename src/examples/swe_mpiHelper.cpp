@@ -60,8 +60,14 @@ float simulateLTSTimeSpace(SWE_WavePropagationAMR* i_wavePropagationBlock,
 				  MPI_Datatype i_mpiSendType[4],
 				  MPI_Comm i_refinementLevelComm) {
 
-	// fixed time-step for coarsest grid
-	float l_dt = 0.12;
+	//! maximum allowed time step width within a block multiplied by the refinement level
+	float l_maxTimeStepWidth = i_wavePropagationBlock->getMaxTimestep() * i_refinementLevel;
+
+	//! maximum allowed time steps of all blocks on a refinement level
+	float l_dt;
+
+	// determine smallest time step of all blocks
+	MPI_Allreduce(&l_maxTimeStepWidth, &l_dt, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
 
 	// allocate space for send requests
 	int l_numRequestsLeft = (i_leftNeighbourRefinementLevel > i_refinementLevel ? i_leftNeighbourRefinementLevel / i_refinementLevel : 0);
