@@ -37,11 +37,22 @@
 
 /**
  * Compares two blocks
+ * @param b1 first SWE_BlockAMR
+ * @param b2 second SWE_BlockAMR
+ * @return true if b1 is finer than b2, and false otherwise
  */
 bool CompareSWE_BlockAMR::operator()(SWE_BlockAMR* b1, SWE_BlockAMR* b2) {
    return (b1->getRefinementLevel() > b2->getRefinementLevel());
 }
 
+/**
+ * Constructor that initialises the block manager
+ *
+ * @param i_blocks a 2D array of blocks to be managed
+ * @param i_blockX number of blocks in x-direction
+ * @param i_blockY number of blocks in y-direction
+ * @param i_interpolationScheme the interpolation scheme used for the ghosst cell exchange
+ */
 SWE_BlockManager::SWE_BlockManager(SWE_BlockAMR*** i_blocks,
 										   const int i_blockX,
 										   const int i_blockY,
@@ -56,22 +67,38 @@ SWE_BlockManager::SWE_BlockManager(SWE_BlockAMR*** i_blocks,
 }
 
 #ifdef BENCHMARKING
+/**
+ * Initialises the data receiver that collects benchmarking data
+ * @param i_baseName base name to be used as a prefix for the output benchmarking file
+ */
 void SWE_BlockManager::initBenchmarkingDataReceiver(const std::string i_baseName) {
 	receiver = new BenchmarkingDataReceiver(i_baseName);
 }
 
+/**
+ * Adds a time at which to save benchmarking data (e.g. water profile)
+ * @param i_time time
+ */
 void SWE_BlockManager::addSpatialData(const float i_time) {
 	receiver->addSpatialData(i_time);
 }
 
-void SWE_BlockManager::addTimeSeries(const float i_xPos,
-											 const float i_yPos) {
+/**
+ * Adds a position where to save benchmarking data collected over time (e.g. water dynamics)
+ * @param i_xPos x-coordinate of the benchmarking point
+ * @param i_yPos y-coordinate of the benchmarking point
+ */
+void SWE_BlockManager::addTimeSeries(const float i_xPos, const float i_yPos) {
 	receiver->addTimeSeries(i_xPos, i_yPos);
 }
 
 #endif
 
-// for global time-stepping, interpolation strategy doesn't matter
+/**
+ * Simulate global time-stepping
+ * @param i_dt_c the checkpoint interval
+ * @return the time that was simulated
+ */
 float SWE_BlockManager::simulate_gts(const float i_dt_c) {
 	float l_t = 0;
 
@@ -153,11 +180,22 @@ float SWE_BlockManager::simulate_gts(const float i_dt_c) {
 	return l_t;
 }
 
+
+/**
+ * Simulate local time-stepping
+ * @param dt_c the checkpoint interval
+ * @return the time that was simulated
+ */
 float SWE_BlockManager::simulate(const float dt_c) {
 	priority_queue<SWE_BlockAMR*, vector<SWE_BlockAMR*>, CompareSWE_BlockAMR> l_pq(blocks);
 	return simulate_level(dt_c, l_pq.top()->getRefinementLevel(), l_pq);
 }
 
+/**
+ * Recursive function to simulate local time-stepping on each refinement level
+ * @param i_dt_c the checkpoint interval
+ * @return the time that was simulated
+ */
 float SWE_BlockManager::simulate_level(const float i_dt_c,
 									   const int i_level,
 									   priority_queue<SWE_BlockAMR*, vector<SWE_BlockAMR*>, CompareSWE_BlockAMR> i_pq) {
@@ -219,9 +257,6 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 			if (interpolationScheme != SPACE) (*it)->synchBeforeRead();
 			(*it)->updateUnknowns(l_dt);
 			if (interpolationScheme != SPACE) (*it)->synchAfterWrite();
-			// for all blocks that are not the coarsest,
-//			if (i_level != blocks.top()->getRefinementLevel() && interpolationScheme == SPACE)
-//				(*it)->decreaseComputationalDomain();
 		}
 
 		// simulate blocks on the next refinement level
@@ -252,7 +287,6 @@ float SWE_BlockManager::simulate_level(const float i_dt_c,
 		l_num_ts++;
 
 		/**
-		 * TODO:
 		 * for space interpolation, update the unknowns after calling simulate_level recursively on the next levels of refinement
 		 * Reason: the time-step might change (become smaller) after the call, as there might not be enough ghost layers on the fine grids
 		 */

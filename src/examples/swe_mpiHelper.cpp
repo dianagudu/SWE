@@ -182,40 +182,6 @@ float simulateLTSTimeSpace(SWE_WavePropagationAMR* i_wavePropagationBlock,
 }
 
 /**
- * TODO
- * LTS with (approx-)time-space interpolation:
- * - use non-blocking communication when sending fine ghost layers to fine grids
- *
- * Check speedup:
- * 2x2 blocks of 100x100, one of them refined by 2
- * LTS time-space interpolation
- * serial: 49s
- * parallel 4procs (2cores): 53s
- *
- * 2x1 blocks of 100x100, right one refined by 2
- *
- * LTS approximate time-space interpolation
- * serial: 27s
- * parallel 2procs: 20s -> 1.35
- *
- * LTS time-space interpolation
- * serial: 40s
- * parallel 2procs: 22s -> 1.81
- *
- * LTS space interpolation
- * serial: 40s
- * parallel 2procs with allreduce: 43s -> 0.93
- * parallel 2procs with fixed ts:  19s -> 2.1
- *
- * 2x1 blocks of 200x200, right one refined by 2i_refinementLevel
-
- * LTS space interpolation
- * serial: 356s
- * parallel 2procs with allreduce: 352s -> 1.01
- * parallel 2procs with fixed ts: 86s -> 4.13
- */
-
-/**
  * The updated ghost layers are needed to refine a copy layer
  * Therefore, the coarser grids first have to receive the ghost layers,
  * update (refine) the copy layers and then send them to the finer grids.
@@ -315,10 +281,17 @@ void exchangeBottomTopGhostLayers( SWE_WavePropagationAMR* i_wavePropagationBloc
 	  }
 }
 
-
-// TODO: add doxy comments for functions
-
-// send ghost layers
+/**
+ * Send ghost layers to a given neighbour using the blocking MPI_Send
+ * @param i_wavePropagationBlock a pointer to the current block
+ * @param i_t time with respect to the start of the coarse time-step
+ * @param i_dtCoarse coarse time-step, one refinement level coarser
+ * @param i_timeSteppingStrategy time stepping strategy
+ * @param i_neighborRank MPI rank of the neighbour to which the data are sent
+ * @param i_outflow the send buffer
+ * @param i_mpiSendType the type of the data being sent
+ * @param i_edge edge where the receiving process is located
+ */
 void sendGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
 					  const float i_t,
 					  const float i_dtCoarse,
@@ -333,7 +306,18 @@ void sendGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
 	MPI_Send( i_outflow->hv.elemVector(),	1,	i_mpiSendType,	i_neighborRank,  3, MPI_COMM_WORLD );
 }
 
-// send ghost layers using Isend
+/**
+ * Send ghost layers to a given neighbour using the non-blocking MPI_Isend
+ * @param i_wavePropagationBlock a pointer to the current block
+ * @param i_t time with respect to the start of the coarse time-step
+ * @param i_dtCoarse coarse time-step, one refinement level coarser
+ * @param i_timeSteppingStrategy time stepping strategy
+ * @param i_neighborRank MPI rank of the neighbour to which the data are sent
+ * @param i_outflow the send buffer
+ * @param i_mpiSendType the type of the data being sent
+ * @param i_edge edge where the receiving process is located
+ * @param i_request output parameter for the send request
+ */
 void isendGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
 					  const float i_t,
 					  const float i_dtCoarse,
@@ -349,7 +333,13 @@ void isendGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
 	MPI_Isend( i_outflow->hv.elemVector(),	1,	i_mpiSendType,	i_neighborRank,  3, MPI_COMM_WORLD, i_request );
 }
 
-// receive ghost layers
+/**
+ * Receive ghost layers from given neighbour using the blocking MPI_Recv
+ * @param i_wavePropagationBlock a pointer to the current block
+ * @param i_neighborRank MPI rank of the neighbour to which the data are sent
+ * @param i_inflow the receive buffer, or the ghost layer
+ * @param i_mpiRecvType the type of the received data
+ */
 void receiveGhostLayers(SWE_WavePropagationAMR* i_wavePropagationBlock,
 						  const int i_neighborRank,
 						  SWE_BlockGhost* o_inflow,

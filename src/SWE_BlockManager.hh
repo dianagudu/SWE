@@ -42,24 +42,27 @@ public:
 
 class SWE_BlockManager {
 public:
+	// constructor
 	SWE_BlockManager(SWE_BlockAMR*** i_blocks,
 						 const int i_blockX=1,
 						 const int i_blockY=1,
 						 const InterpolationType i_interpolationScheme = APPROX_TIME_SPACE);
+	// methods time-stepping
 	float simulate_gts(const float i_dt_c);
 	float simulate(const float i_dt);
 	float simulate_level(const float i_dt_c,
 						 const int i_level,
 						 priority_queue<SWE_BlockAMR*, vector<SWE_BlockAMR*>, CompareSWE_BlockAMR> i_pq);
-	void initBenchmarkingDataReceiver(const std::string i_baseName);
 
 #ifdef BENCHMARKING
+	// methods for benchmarking
+	void initBenchmarkingDataReceiver(const std::string i_baseName);
 	void addSpatialData(const float i_time);
 	void addTimeSeries(const float i_xPos, const float i_yPos);
 #endif
 
 protected:
-	//! number of blocks in each dimension
+	// number of blocks in each dimension
 	int blockX;
 	int blockY;
 	//! interpolation scheme used for ghost layers
@@ -68,8 +71,8 @@ protected:
 	priority_queue<SWE_BlockAMR*, vector<SWE_BlockAMR*>, CompareSWE_BlockAMR> blocks;
 	//! global time
 	float time;
-	//! benchmarking data receiver
 #ifdef BENCHMARKING
+	//! benchmarking data receiver
 	BenchmarkingDataReceiver* receiver;
 #endif
 };

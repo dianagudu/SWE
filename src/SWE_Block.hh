@@ -212,14 +212,19 @@ class SWE_Block {
     int getNy() { return ny;};
 
     // access methods to dx and dy
+    /// returns #dx, i.e. the mesh size in x-direction
 	float getDx() { return dx; }
+	/// returns #dy, i.e. the mesh size in y-direction
 	float getDy() { return dy; }
 
 	// access methods to offsets on X and Y
+	/// returns #offsetX, i.e. the x-coordinate of the origin (left-bottom corner) of the Cartesian grid
 	float getOffsetX() { return offsetX; }
+	/// returns #offsetY, i.e. the y-coordinate of the origin (left-bottom corner) of the Cartesian grid
 	float getOffsetY() { return offsetY; }
 
 	// access method to the number of ghost cells
+	/// returns #nghosts, i.e. the number of ghost cells
 	int getNghosts() { return nghosts; }
 
 	// Konstanten:
@@ -287,7 +292,7 @@ class SWE_Block {
     int nxint_s, nxint_e;	///< start and end index in x-direction
     int nyint_s, nyint_e;	///< start and end index in y-direction
     // number of ghost cells at one boundary edge
-    int nghosts;
+    int nghosts;	///< number of ghost cells at one boundary edge
 
     //--- for visualisation
     /// name of output file (for visualisation)

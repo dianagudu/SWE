@@ -136,10 +136,8 @@ SWE_BlockGhost* SWE_BlockGhost::refine(int rx, int ry, float dx, float dy,
 				for (int l=(j-1)*ry; l<j*ry; ++l) {
 					x = offsetX + (k+0.5f)*_dx;
 					y = offsetY + (l+0.5f)*_dy;
-					// TODO: interpolate bathymetry as well instead of getting it from the scenario
-					// TODO: remove scene and other unnecessary parameters
-					// (*_b)[k][l] = scene->getBathymetry(x, y);
-					(*_b)[k][l] = interpolate(b[i][j], sigma_b_x, sigma_b_y, x, xc, y, yc);
+					(*_b)[k][l] = scene->getBathymetry(x, y);
+					// (*_b)[k][l] = interpolate(b[i][j], sigma_b_x, sigma_b_y, x, xc, y, yc);
 					(*_h)[k][l] = interpolate(h[i][j]+b[i][j], sigma_h_x, sigma_h_y, x, xc, y, yc) - (*_b)[k][l];
 					(*_hu)[k][l] = interpolate(hu[i][j], sigma_hu_x, sigma_hu_y, x, xc, y, yc);
 					(*_hv)[k][l] = interpolate(hv[i][j], sigma_hv_x, sigma_hv_y, x, xc, y, yc);

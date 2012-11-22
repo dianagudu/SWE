@@ -38,7 +38,8 @@
 #include "../tools/help.hh"
 
 /**
- *
+ * Class that collects and writes benchmarking data
+ * at a given point to an output file
  */
 class TimeSeriesDataReceiver {
 public:
@@ -63,8 +64,6 @@ public:
 
 		// write header in the output file
 		ofstream l_outFile(outFileName.c_str());
-//		if (l_outFile.is_open())
-//			l_outFile << "t\t" << "x=" << xPos << ",yPos=" << yPos << endl;
 		l_outFile.close();
 	};
 
@@ -93,7 +92,8 @@ private:
 };
 
 /**
- *
+ * Class that collects and writes benchmarking data
+ * at a given time to an output file
  */
 class SpatialDataReceiver {
 public:
@@ -114,13 +114,11 @@ public:
 		outFileName = oss.str();
 		// write header
 		ofstream l_outFile(outFileName.c_str());
-//		if (l_outFile.is_open())
-//			l_outFile << "x" << "\t" << "y" << "\t" << "t=" << time << endl;
 		l_outFile.close();
 	};
 
 	/**
-	 *
+	 * Writes a measurement for a given time
 	 */
 	void writeData(const float i_offsetX,
 				   const float i_offsetY,

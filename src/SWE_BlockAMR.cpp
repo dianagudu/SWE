@@ -32,17 +32,19 @@
 #include <cassert>
 
 /**
- * constructor
- * @param _offsetX
- * @param _offsetY
- * @param _nx
- * @param _ny
- * @param _dx
- * @param _dy
- * @param _rx
- * @param _ry
- * @param _nghosts
- * @param _interpolationStrategy
+ * Constructor - builds an object of type SWE_BlockAMR
+ * sets all the fields to the given parameters and
+ * allocates memory for the Float2D objects
+ *
+ * @param _offsetX	offset of the block in x-direction
+ * @param _offsetY	offset of the block in y-direction
+ * @param _nx		number of internal cells in the x-direction
+ * @param _ny		number of internal cells in the y-direction
+ * @param _dx		mesh size in x-direction
+ * @param _dy		mesh size in y-direction
+ * @param _rx		refinement level in x-direction
+ * @param _ry		refinement level in y-direction
+ * @param _nghosts	number of ghost layers at each boundary
  */
 SWE_BlockAMR::SWE_BlockAMR(float i_offsetX,
 						   float i_offsetY,
@@ -71,6 +73,9 @@ SWE_BlockAMR::SWE_BlockAMR(float i_offsetX,
 #endif
 }
 
+/**
+ * @override
+ */
 void SWE_BlockAMR::initScenario(SWE_Scenario &i_scenario,
 		const bool i_multipleBlocks) {
 	SWE_Block::initScenario(i_scenario, i_multipleBlocks);
@@ -79,20 +84,34 @@ void SWE_BlockAMR::initScenario(SWE_Scenario &i_scenario,
 
 #ifdef NOMPI
 /**
- * Stores a pointer to the neighbouring block
+ * Sets the neighbouring block at a given boundary edge
+ *
+ * @param neigh	pointer to a neighbouring block
+ * @param edge	one of the four boundary edges of the block
  */
 void SWE_BlockAMR::setBlockNeighbour(SWE_BlockAMR* i_neighbour, BoundaryEdge i_edge) {
 	block_neighbour[i_edge] = i_neighbour;
 }
 #endif
 
+/**
+ * Sets the refinement level of neighbouring block
+ * at a given boundary edge
+ *
+ * @param neigh	pointer to a neighbouring block
+ * @param edge	one of the four boundary edges of the block
+ */
 void SWE_BlockAMR::setNeighbourRefinementLevel(int i_rxy, BoundaryEdge i_edge) {
 	neighbourRefinementLevel[i_edge] = i_rxy;
 }
 
 /**
- * @param i_edge
- * @return
+ * The method creates a SWE_BlockGhost and sets it as copy layer for the given edge
+ * the block_neighbour is used to determine the size of the copy layer
+ * (@override)
+ *
+ * @param edge	one of the four boundary edges of the block
+ * @return 		a pointer to the copy layer
  */
 SWE_BlockGhost* SWE_BlockAMR::registerCopyLayer(BoundaryEdge i_edge) {
 
@@ -288,11 +307,12 @@ SWE_BlockGhost* SWE_BlockAMR::getCoarseProxyCopyLayer_multiLayer(BoundaryEdge i_
 
 
 /**
- * @param i_timeStepping
- * @param i_edge
- * @param t
- * @param dt_coarse
- * @return
+ * The method sets the values in the copy layer of a given edge
+ * by coarsening or refining the values at the edge of the block
+ *
+ * @param edge the boundary edge where the copy layer is located
+ * @param t		time since the last coarse time-step
+ * 				only makes sense in the case of refining
  */
 void SWE_BlockAMR::synchCopyLayerBeforeRead(TimeSteppingType i_timeStepping,
 											BoundaryEdge i_edge,
@@ -325,7 +345,7 @@ void SWE_BlockAMR::synchCopyLayerBeforeRead(TimeSteppingType i_timeStepping,
 }
 
 /**
- * @return
+ * @override
  */
 void SWE_BlockAMR::synchBeforeRead() {
 	for (int l_edge = 0; l_edge < 4; ++l_edge)
@@ -376,7 +396,7 @@ void SWE_BlockAMR::synchBeforeRead() {
 }
 
 /**
- *
+ * @override
  */
 void SWE_BlockAMR::synchAfterWrite() {
 	for (int l_edge = 0; l_edge < 4; ++l_edge)
@@ -586,7 +606,7 @@ void SWE_BlockAMR::setCopyLayerFine(BoundaryEdge i_edge, SWE_BlockGhost* layer) 
 }
 
 /**
- *
+ * Decreases the computational domain by excluding one ghost layer on each boundary edge
  */
 void SWE_BlockAMR::decreaseComputationalDomain() {
 //	if (neighbourRefinementLevel[BND_LEFT] != 0) nxint_s++;
@@ -600,7 +620,7 @@ void SWE_BlockAMR::decreaseComputationalDomain() {
 }
 
 /**
- *
+ * Resets the computational domain to include half of the ghost layers at each noundary
  */
 void SWE_BlockAMR::resetComputationalDomainMax() {
 	if (nghosts > 1) {
@@ -612,7 +632,7 @@ void SWE_BlockAMR::resetComputationalDomainMax() {
 }
 
 /**
- *
+ * Resets the computational domain to its minimum, no ghost layers included
  */
 void SWE_BlockAMR::resetComputationalDomainMin() {
 	nxint_s = nyint_s = nghosts;
@@ -622,7 +642,7 @@ void SWE_BlockAMR::resetComputationalDomainMin() {
 
 /**
  * set the values of ghost cells for one edge depending on the specifed boundary conditions;
- * if the ghost layer replicates the variables of a remote SWE_Block, the values are copied
+ * if the ghost layer replicates the variables of a remote SWE_BlockAMR, the values are copied
  *
  * the function has a BoundaryEdge parameter to make possible the implementation of the
  * two-phase ghost layer exchange (to update the corner ghost cells properly)
@@ -705,6 +725,12 @@ void SWE_BlockAMR::setGhostLayerEdge(BoundaryEdge i_edge) {
 	synchGhostLayerAfterWrite();
 }
 
+/**
+ * Updates the values in the ghost layer of a given edge
+ *
+ * @param i_edge one of the four boundary edges of the block
+ * @param i_neighbour the values to be set in the ghost layer
+ */
 void SWE_BlockAMR::setGhostLayerEdge(BoundaryEdge i_edge, SWE_BlockGhost* i_neighbour) {
 
 #ifdef DBG

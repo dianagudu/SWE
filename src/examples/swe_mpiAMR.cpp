@@ -62,7 +62,7 @@ static tools::Logger s_sweLogger;
 #include "swe_mpiHelper.hh"
 
 /**
- * Main program for the simulation on a single SWE_WavePropagationBlockAMR.
+ * Main program for the simulation on a single SWE_WavePropagationBlockAMR per MPI process.
  */
 int main(int argc, char** argv) {
 	/**

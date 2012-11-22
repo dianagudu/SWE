@@ -32,6 +32,8 @@
 #include "../SWE_BlockGhost.hh"
 #include "../SWE_WavePropagationAMR.hh"
 
+// simulate one coarse time-step with local time-stepping and
+// (approximate) time-space interpolation of ghost layers
 float simulateLTSTimeSpace(SWE_WavePropagationAMR* i_wavePropagationBlock,
 				  const float i_t, const float i_dtCoarse,
 

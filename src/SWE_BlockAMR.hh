@@ -45,54 +45,14 @@ using namespace std;
 class SWE_BlockAMR : public SWE_Block {
   public:
 	// constructor
-	/**
-	 * Constructor - builds an object of type SWE_BlockAMR
-	 * sets all the fields to the given parameters and
-	 * allocates memory for the Float2D objects
-	 *
-	 * @param _offsetX	offset of the block in x-direction
-	 * @param _offsetY	offset of the block in y-direction
-	 * @param _nx		number of internal cells in the x-direction
-	 * @param _ny		number of internal cells in the y-direction
-	 * @param _dx		mesh size in x-direction
-	 * @param _dy		mesh size in y-direction
-	 * @param _rx		refinement level in x-direction
-	 * @param _ry		refinement level in y-direction
-	 * @param _nghosts	number of ghost layers at each boundary
-	 */
 	SWE_BlockAMR(float _offsetX, float _offsetY, int _nx, int _ny, float _dx, float _dy, int _rx=1, int _ry=1,
 					 int _nghosts=1, InterpolationType _interpolationScheme = APPROX_TIME_SPACE );
+
 	// object methods
-
-	/**
-	 * The method creates a SWE_BlockGhost and sets it as copy layer for the given edge
-	 * the block_neighbour is used to determine the size of the copy layer
-	 * (@override)
-	 *
-	 * @param edge	one of the four boundary edges of the block
-	 * @return 		a pointer to the copy layer
-	 */
-    virtual SWE_BlockGhost* registerCopyLayer(BoundaryEdge edge);
-
-    /**
-     * The method sets the values in the copy layer of a given edge
-     * by coarsening or refining the values at the edge of the block
-     *
-     * @param edge the boundary edge where the copy layer is located
-     * @param t		time since the last coarse time-step
-     * 				only makes sense in the case of refining
-     */
+	virtual SWE_BlockGhost* registerCopyLayer(BoundaryEdge edge);
     virtual void synchCopyLayerBeforeRead(TimeSteppingType timeStepping, BoundaryEdge edge, float t, float dt_c);
-
-    /**
-     * @override
-     */
     virtual void synchAfterWrite();
     virtual void synchBeforeRead();
-
-    /**
-     * @override
-     */
     void initScenario(SWE_Scenario &i_scenario, const bool i_multipleBlocks);
 
     /**
@@ -105,37 +65,12 @@ class SWE_BlockAMR : public SWE_Block {
     void resetComputationalDomainMax();
     void resetComputationalDomainMin();
 
-    /**
-     * Updates the values in the ghost layer of a given edge
-     *
-     * @param edge one of the four boundary edges of the block
-     */
     void setGhostLayerEdge(BoundaryEdge edge);
-
-    /**
-     * Updates the values in the ghost layer of a given edge
-     *
-     * @param i_edge one of the four boundary edges of the block
-     * @param i_neighbour the values to be set in the ghost layer
-     */
     void setGhostLayerEdge(BoundaryEdge i_edge, SWE_BlockGhost* i_neighbour);
 
-    /**
-     * Sets the refinement level of neighbouring block
-     * at a given boundary edge
-     *
-     * @param neigh	pointer to a neighbouring block
-     * @param edge	one of the four boundary edges of the block
-     */
     void setNeighbourRefinementLevel(int i_rxy, BoundaryEdge edge);
 
 #ifdef NOMPI
-    /**
-     * Sets the neighbouring block at a given boundary edge
-     *
-     * @param neigh	pointer to a neighbouring block
-     * @param edge	one of the four boundary edges of the block
-     */
     void setBlockNeighbour(SWE_BlockAMR* neigh, BoundaryEdge edge);
 
     /**
@@ -162,29 +97,33 @@ class SWE_BlockAMR : public SWE_Block {
     void timeInterpolateCopyLayer(BoundaryEdge edge, float t, float dt_c);
 
   protected:
-    /** refinement factor in the x-direction */
+    /// refinement factor in the x-direction
     int rx;
-    /** refinement factor in the y-direction */
+    /// refinement factor in the y-direction
     int ry;
-    /** array of copy layers for all edges */
+    /// copy layers for all edges
     SWE_BlockGhost* copyLayer[4];
+    /// proxy copy layers for all edges
     SWE_BlockGhost* proxyCopyLayer[4];
-    /** only used for (approximate) time space interpolation */
+
+    // only used for (approximate) time space interpolation
+    /// copy layers at beginning of time-step
     SWE_BlockGhost* startCopyLayer[4];
+    /// copy layers at the end of time-step
     SWE_BlockGhost* endCopyLayer[4];
+    /// changes in copy layers in one time-step
     SWE_BlockGhost* delta[4];
-    /** refinement levels of neighbours */
+
+    /// refinement levels of neighbours
     int neighbourRefinementLevel[4];
 #ifdef NOMPI
-    /** pointers to neighbouring blocks in each direction */
+    /// pointers to neighbouring blocks in each direction (only used in serial version)
     SWE_BlockAMR* block_neighbour[4];
 #endif
 
-    /** scenario */
+    /// scenario
     SWE_Scenario* scene;
-    /** type of interpolation used for the ghost layers
-     * -> determines the number of ghost layers
-     * */
+    /// type of interpolation used for the ghost layers; determines the number of ghost layers
     InterpolationType interpolationStrategy;
 };
 

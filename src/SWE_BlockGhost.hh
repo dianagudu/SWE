@@ -102,7 +102,7 @@ public:
     SWE_BlockGhost* getBlockProxy(int c, int r, int nc, int nr);
 
 private:
-    // helper methods for the bilinear interpolation
+    // helper methods for the bilinear interpolation with minmod limited slopes
     inline float sigma_x(const Float2D& v, int i, int j, float dx);
 	inline float sigma_y(const Float2D& v, int i, int j, float dy);
 	inline float sigma_x_2(const Float2D& v1, const Float2D& v2, int i, int j, float dx);
@@ -111,13 +111,13 @@ private:
 
 public:
 	// size of the current block in x- and y-direction
-    int nx;
-    int ny;
+    int nx; ///< size of Cartesian arrays in x-direction
+    int ny; ///< size of Cartesian arrays in y-direction
     // 2D arrays to store the unknowns and the bathymetry
-    Float2D h;
-    Float2D b;
-    Float2D hu;
-    Float2D hv;
+    Float2D h;	///< array that holds the water height for each element
+    Float2D hu; ///< array that holds the x-component of the momentum for each element (water height h multiplied by velocity in x-direction)
+    Float2D hv; ///< array that holds the y-component of the momentum for each element (water height h multiplied by velocity in y-direction)
+    Float2D b;  ///< array that holds the bathymetry data (sea floor elevation) for each element
 };
 
 #endif //_SWE_BlockGhost_HH_

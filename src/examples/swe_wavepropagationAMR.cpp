@@ -69,7 +69,7 @@ static tools::Logger s_sweLogger;
 #include "../SWE_BlockManager.hh"
 
 /**
- * Main program for the simulation on a single SWE_WavePropagationBlock.
+ * Main program for the simulation on a 2D array of SWE_WavePropagationBlockAMR.
  */
 int main( int argc, char** argv ) {
   /**

@@ -39,6 +39,11 @@
 #include "BenchmarkingDataStructures.hpp"
 
 
+/**
+ * Class for collecting benchmarking data
+ * at different points and times.
+ * The data are written to output files on the disk.
+ */
 class BenchmarkingDataReceiver {
 public:
 	/**
